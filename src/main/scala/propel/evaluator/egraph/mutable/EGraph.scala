@@ -111,12 +111,12 @@ object EGraph:
       override def rebuild(): Unit =
         def repair(xc: EClass): Unit =
           val xcData = self.datas.remove(xc.id).getOrElse(EClassData())
-          // Restore universe by making all e-nodes point to canonical e-classes
+          // Restore Congruence Invariance: Vf Vx Vy. x=y -> f(x)=f(y)
           xcData.uses.foreach((x, xcStale) =>
             self.enodes.remove(x)
             self.enodes.update(self.canonicalize(x), self.find(xcStale).id)
           )
-          // Remove duplicate uses
+          // Remove Duplicates
           val distinctUses = MutableMap[ENode, EClass]()
           xcData.uses.foreach((x, xcStale) =>
             val x0 = self.canonicalize(x)
