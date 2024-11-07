@@ -1,10 +1,10 @@
 package propel.evaluator.egraph.mutable
 
-import propel.evaluator.egraph.{EClass, ENode}
+import propel.evaluator.egraph.{EClass, ENode, Analysis}
 
 /** A type-class defining the operations supported by an e-graph. */
-trait EGraphOps[EGraph]:
-  extension (self: EGraph) {
+trait EGraphOps[A <: Analysis, EGraph[_ <: A]]: // Jahrim Assistance
+  extension(self: EGraph[A]) {
     /** @return a map from [[EClass]]es to the sets of their [[ENode]]es. */
     def eclasses: Map[EClass, Set[ENode]]
     /**

@@ -7,22 +7,21 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet}
 /** Definition of a mutable egraph. */
 object EGraph:
   /** Alias for [[empty]]. */
-  def apply(): EGraph = EGraph.empty
-
-  /** @return an empty e-graph. */
-  def empty: EGraph = BasicEGraph()
+  def apply[A <: Analysis](analysis: A): EGraph[A] = BasicEGraph[A](analysis = analysis)
 
   /** An e-graph data structure. */
-  opaque type EGraph = BasicEGraph
-  given EGraphOps: EGraphOps[EGraph] = new EGraph.BasicEGraphOps {}
+  opaque type EGraph[A <: Analysis] = BasicEGraph[A] // Jahrim Assistance
+  // given EGraphOps: EGraphOps[EGraph] = new EGraph.BasicEGraphOps {} // FIXME: This is broken
+  given EGraphOps[A <: Analysis]: EGraphOps[A, EGraph] = new BasicEGraphOps[A] {} // Jahrim Assistance
 
   /** Basic implementation of an e-graph. */
-  private case class BasicEGraph(
+  private case class BasicEGraph[A <: Analysis](
     underlying: UnionFind.UnionFind[EClass] = UnionFind(),
     classes: MutableMap[EClass.Id, EClass] = MutableMap(),
     enodes: MutableMap[ENode, EClass.Id] = MutableMap(),
     uses: MutableMap[EClass.Id, MutableMap[ENode, EClass]] = MutableMap(),
     worklist: MutableSet[EClass.Id] = MutableSet(),
+    analysis: A,
   ):
     override def toString: String =
       s"""EGraph:
@@ -34,8 +33,8 @@ object EGraph:
         |""".stripMargin
 
   /** Basic operations for egraphs. */
-  private trait BasicEGraphOps extends EGraphOps[BasicEGraph]:
-    extension (self: BasicEGraph) {
+  private trait BasicEGraphOps[A <: Analysis] extends EGraphOps[A, BasicEGraph]:
+    extension (self: BasicEGraph[A]) { // FIXME: This is broken, but I have not tried to fix it yet
       override def eclasses: Map[EClass, Set[ENode]] =
         self.enodes.groupBy((x, xcId) => self.find(self.classes(xcId))).map(_ -> _.toMap.keySet)
       override def add(x: ENode): EClass =
@@ -119,7 +118,21 @@ object EGraph:
 // sbt "runMain propel.evaluator.egraph.mutable.simple.testEGraph"
 @main def testEGraph(): Unit =
   import EGraph.EGraphOps
-  val egraph = EGraph()
+  val empty_analysis = new Analysis {
+    type Data = Int
+    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data = {
+      println(s"make($enode)")
+      return 0
+    }
+    def merge(data1: Data, data2: Data): Unit = {
+      println(s"merge($data1, $data2)")
+    }
+    def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = {
+      println(s"modify($id)")
+    }
+  }
+
+  val egraph = EGraph(empty_analysis)
 
   /** Define the elements of your egraphs. */
   val constantsENodes @ Seq(an,bn,cn,dn,en,fn,gn,hn,in) = Seq(
