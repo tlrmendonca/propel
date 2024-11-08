@@ -7,6 +7,13 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet}
 /** Definition of a mutable egraph. */
 object EGraph:
   /** Alias for [[empty]]. */
+  def apply(): EGraph[Analysis] = BasicEGraph[Analysis](analysis = new Analysis {
+    type Data = Int
+    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data = 0
+    def merge(data1: Data, data2: Data): Unit = ()
+    def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = ()
+  })
+
   def apply[A <: Analysis](analysis: A): EGraph[A] = BasicEGraph[A](analysis = analysis)
 
   /** An e-graph data structure. */
