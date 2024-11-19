@@ -1,24 +1,25 @@
 package propel.evaluator.egraph.mutable.simple
 
 import propel.evaluator.egraph.*
-import propel.evaluator.egraph.mutable.{EGraphOps, UnionFind}
+import propel.evaluator.egraph.mutable.UnionFind
+import propel.evaluator.egraph.mutable.simple.EGraphOps
 import collection.mutable.{Map as MutableMap, Set as MutableSet}
 
 /** Definition of a mutable egraph. */
 object EGraph:
   /** Alias for [[empty]]. */
-  def apply(): EGraph[Analysis] = BasicEGraph[Analysis](analysis = new Analysis {
+  def apply(): EGraph[Analysis] = BasicEGraph(analysis = new Analysis {
     type Data = Int
-    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data = 0
-    def merge(data1: Data, data2: Data): Unit = ()
+    val eclass_data = MutableMap()
+    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Unit = ()
+    def merge(id1: EClass.Id, id2: EClass.Id): Unit = ()
     def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = ()
   })
 
-  def apply[A <: Analysis](analysis: A): EGraph[A] = BasicEGraph[A](analysis = analysis)
+  def apply[A <: Analysis](analysis: A): EGraph[A] = BasicEGraph(analysis = analysis)
 
   /** An e-graph data structure. */
   opaque type EGraph[A <: Analysis] = BasicEGraph[A] // Jahrim Assistance
-  // given EGraphOps: EGraphOps[EGraph] = new EGraph.BasicEGraphOps {} // FIXME: This is broken
   given EGraphOps[A <: Analysis]: EGraphOps[A, EGraph] = new BasicEGraphOps[A] {} // Jahrim Assistance
 
   /** Basic implementation of an e-graph. */
@@ -41,7 +42,7 @@ object EGraph:
 
   /** Basic operations for egraphs. */
   private trait BasicEGraphOps[A <: Analysis] extends EGraphOps[A, BasicEGraph]:
-    extension (self: BasicEGraph[A]) { // FIXME: This is broken, but I have not tried to fix it yet
+    extension (self: BasicEGraph[A]) {
       override def eclasses: Map[EClass, Set[ENode]] =
         self.enodes.groupBy((x, xcId) => self.find(self.classes(xcId))).map(_ -> _.toMap.keySet)
       override def add(x: ENode): EClass =
@@ -127,12 +128,14 @@ object EGraph:
   import EGraph.EGraphOps
   val empty_analysis = new Analysis {
     type Data = Int
-    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data = {
-      println(s"make($enode)")
-      return 0
+    val eclass_data = MutableMap()
+    def make[A <: Analysis, G[_ <: A]](g: G[A], x: ENode)(using EGraphOps[A, G]): Unit = {
+      val xc = g.find(EClass(x))
+      eclass_data.update(xc.id, 0)
+      println(s"make on ($xc.id) and set data to (${eclass_data(xc.id)})")
     }
-    def merge(data1: Data, data2: Data): Unit = {
-      println(s"merge($data1, $data2)")
+    def merge(id1: EClass.Id, id2: EClass.Id): Unit = {
+      println(s"merge($id1, $id2)")
     }
     def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = {
       println(s"modify($id)")

@@ -1,7 +1,7 @@
 package propel.evaluator.egraph
 
 import propel.evaluator.egraph.{EClass, ENode, Language}
-import propel.evaluator.egraph.mutable.{EGraph, EGraphOps}
+import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 
 import collection.mutable.{Map as MutableMap, Set as MutableSet}
 
@@ -11,24 +11,26 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet}
  */
 trait Analysis:
     type Data;
+    val eclass_data: MutableMap[EClass.Id, Data];
 
     /**
       * Makes a new [[Analysis]]'s data, given an [[ENode]].
       * 
       * @param egraph the specified [[Egraph]].
       * @param enode the specified [[ENode]].
-      * @return the [[Data]] corresponding to the [[ENode]].
       * 
       * @note This function is not responsible for adding the [[ENode]].
-      * It should be called in the process of adding an [[ENode]]. 
+      * It should be called in the process of adding an [[ENode]] to an [[EGraph]].
+      * @note This function expects given [[ENode]] to be cannonical of its [[EClass]].
+      * For more information, refer to [[EGraph.add]]. 
       */
-    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data;
+    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Unit;
 
     /**
-      * Defines how to merge two [[Data]]s.
+      * Defines how to merge two [[Data]]s, given two [[EClass]]es' Id.
       *
-      * @param data1 the data of the first EClass.
-      * @param data2 the data of the second EClass, to be merged.
+      * @param id1 the id of the first EClass.
+      * @param id2 the id of the second EClass, to be merged.
       * 
       * @note TODO: This function would benefit from returning some type
       * of structure indicating the success or failure of this operation,
@@ -38,7 +40,7 @@ trait Analysis:
       * the sense that [[modify]] has access to the egraph too. E.g.:
       * storing some data for [[modify]] to process later.
       */
-    def merge(data1: Data, data2: Data): Unit;
+    def merge(id1: EClass.Id, id2: EClass.Id): Unit;
 
     /**
       * An optional function that modifies the given [[EClass]].

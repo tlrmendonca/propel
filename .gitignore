@@ -49,12 +49,9 @@ report/*.*
 !evaluation-tip/haskell/**/*.log
 !evaluation-tip/smtlib2/**/*.log
 !evaluation-tip/propel/**/*.log
-.metals/metals.mv.db
-.metals/metals.lock.db
-.metals/.reports/metals-full/2024-10-25/r_compiler-error_(propelJS)_15-18-38-685.md
-.metals/.reports/metals-full/2024-11-02/r_compiler-error_(propelJS)_14-58-33-824.md
-.metals/.reports/metals-full/2024-11-02/r_compiler-error_(propelJS)_14-58-59-015.md
+.metals/*
 .vscode/settings.json
 project/metals.sbt
 project/project/metals.sbt
 project/project/project/metals.sbt
+
