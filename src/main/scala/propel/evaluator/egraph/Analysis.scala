@@ -13,34 +13,35 @@ trait Analysis:
     type Data;
     val eclass_data: MutableMap[EClass.Id, Data];
 
+    def getData(id: EClass.Id): Option[Data] = eclass_data.get(id)
+
+    def setData(id: EClass.Id, data: Data): Unit = eclass_data.update(id, data)
+
+    // TODO: getOrMakeData(class.id)
+
     /**
       * Makes a new [[Analysis]]'s data, given an [[ENode]].
       * 
       * @param egraph the specified [[Egraph]].
       * @param enode the specified [[ENode]].
+      * @return the data of the new [[EClass]].
       * 
-      * @note This function is not responsible for adding the [[ENode]].
+      * @note This function is not responsible for adding the [[ENode]], nor storing the [[Data]].
       * It should be called in the process of adding an [[ENode]] to an [[EGraph]].
       * @note This function expects given [[ENode]] to be cannonical of its [[EClass]].
-      * For more information, refer to [[EGraph.add]]. 
+      * For more information, refer to [[EGraph.add]]. This implies the client can search
+      * the graph to find the [[EClass]] of the given [[ENode]] safely.
       */
-    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Unit;
+    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data;
 
     /**
-      * Defines how to merge two [[Data]]s, given two [[EClass]]es' Id.
+      * Defines how to merge two datas.
       *
-      * @param id1 the id of the first EClass.
-      * @param id2 the id of the second EClass, to be merged.
-      * 
-      * @note TODO: This function would benefit from returning some type
-      * of structure indicating the success or failure of this operation,
-      * but for now it is not implemented. This idea is inspired by egg's
-      * approach.
-      * @note This function may be able to affect the [[Analysis]], in
-      * the sense that [[modify]] has access to the egraph too. E.g.:
-      * storing some data for [[modify]] to process later.
+      * @param data1 the data of the first EClass.
+      * @param data2 the data of the second EClass, to be merged.
+      * @return the merged data.
       */
-    def merge(id1: EClass.Id, id2: EClass.Id): Unit;
+    def merge(data1: Data, data2: Data): Data;
 
     /**
       * An optional function that modifies the given [[EClass]].

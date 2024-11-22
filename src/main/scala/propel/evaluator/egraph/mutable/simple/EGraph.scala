@@ -11,8 +11,8 @@ object EGraph:
   def apply(): EGraph[Analysis] = BasicEGraph(analysis = new Analysis {
     type Data = Int
     val eclass_data = MutableMap()
-    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Unit = ()
-    def merge(id1: EClass.Id, id2: EClass.Id): Unit = ()
+    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data = 0
+    def merge(data1: Data, data2: Data): Data = 0
     def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = ()
   })
 
@@ -54,10 +54,14 @@ object EGraph:
               self.classes.update(refc.id, refc)
               self.uses.getOrElseUpdate(refc.id, MutableMap()).addOne(x0 -> xc0)
               self.enodes.update(refc.canonical, refc.id)
-            )
-            self.classes.update(xc0.id, xc0)
-            self.uses.update(xc0.id, MutableMap())
-            self.enodes.update(x0, xc0.id)
+              )
+              self.classes.update(xc0.id, xc0)
+              self.uses.update(xc0.id, MutableMap())
+              self.enodes.update(x0, xc0.id)
+            
+            val data = self.analysis.make(self, x0)
+            self.analysis.setData(xc0.id, data)
+            self.analysis.modify(self, xc0.id) // Before return = Modify
             xc0
 
       override def union(xc: EClass, yc: EClass): EClass =
@@ -71,8 +75,17 @@ object EGraph:
         val otherUses = self.uses.getOrElseUpdate(other.id, MutableMap())
         xycUses.addAll(otherUses)
         self.uses.remove(other.id)
-
+        
+        val xdata = self.analysis.getData(xc0.id)
+        val ydata = self.analysis.getData(yc0.id)
+        (xdata, ydata) match
+          case (Some(xd), Some(yd)) =>
+            val data = self.analysis.merge(xd, yd)
+            self.analysis.setData(xyc.id, data)
+          case _ => throw new java.lang.UnsupportedOperationException("Something went wrong in analysis merging, at least one data not found")
+        
         self.worklist.add(xyc.id)
+        self.analysis.modify(self, xyc.id) // Before return = Modify
         xyc
 
       override def find(xc: EClass): EClass =
@@ -98,6 +111,22 @@ object EGraph:
           )
           self.uses.update(self.find(xc).id, distinctUses)
 
+          self.analysis.modify(self, xc.id) // This may break invariants
+          
+          // TODO: Turn this off in the future to test with a know to be correct analysis
+          xcUses.foreach((x, xcStale) =>
+            self.lookup(x) match // TODO: Question - Do I need to lookup the node?
+              case (_, Some(xcStale0)) =>
+                val data = self.analysis.getData(xcStale0.id).get //FIXME: Unsafe
+                val data2 = self.analysis.make(self, x)
+                val newData = self.analysis.merge(data, data2)
+
+                if newData != data then
+                  self.analysis.setData(xcStale0.id, newData)
+                  self.worklist.add(xcStale0.id)
+              case _ => throw new java.lang.UnsupportedOperationException("Something went wrong in analysis rebuilding") // FIXME: Change exception or use assert()
+          )
+
         while (self.worklist.nonEmpty) {
           val brokenClasses = self.worklist.map(id => self.find(self.classes(id)))
           self.worklist.clear()
@@ -113,6 +142,7 @@ object EGraph:
        */
       private def lookup(x: ENode): (ENode, Option[EClass]) =
         val x0 = self.canonicalize(x)
+        // TODO: Possible require(x0 belong to graph) => add .get below
         (x0, self.enodes.get(x0).map(self.classes))
 
       override def disunion(xc: EClass, yc: EClass): Unit =
@@ -125,24 +155,7 @@ object EGraph:
 
 // sbt "runMain propel.evaluator.egraph.mutable.simple.testEGraph"
 @main def testEGraph(): Unit =
-  import EGraph.EGraphOps
-  val empty_analysis = new Analysis {
-    type Data = Int
-    val eclass_data = MutableMap()
-    def make[A <: Analysis, G[_ <: A]](g: G[A], x: ENode)(using EGraphOps[A, G]): Unit = {
-      val xc = g.find(EClass(x))
-      eclass_data.update(xc.id, 0)
-      println(s"make on ($xc.id) and set data to (${eclass_data(xc.id)})")
-    }
-    def merge(id1: EClass.Id, id2: EClass.Id): Unit = {
-      println(s"merge($id1, $id2)")
-    }
-    def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = {
-      println(s"modify($id)")
-    }
-  }
-
-  val egraph = EGraph(empty_analysis)
+  val egraph = EGraph()
 
   /** Define the elements of your egraphs. */
   val constantsENodes @ Seq(an,bn,cn,dn,en,fn,gn,hn,in) = Seq(
