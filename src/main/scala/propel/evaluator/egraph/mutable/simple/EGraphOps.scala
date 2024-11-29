@@ -62,4 +62,9 @@ trait EGraphOps[A <: Analysis, EGraph[_ <: A]]: // Jahrim Assistance
      *         [[false]] otherwise.
      */
     def hasContradiction: Boolean
+    /**
+      * @param id the specified [[EClass]]'s Id.
+      * @return the [[EClass]] with the specified Id.
+      */
+    def getEClassFromId(id: EClass.Id): EClass
   }
