@@ -11,7 +11,9 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet}
  */
 trait Analysis:
     type Data;
-    val eclass_data: MutableMap[EClass.Id, Data];
+    val eclass_data: MutableMap[EClass.Id, Data]; // TODO: make this private
+
+    // TODO: init function taking a data type "Data" to initialize eclass_data
 
     def getData(id: EClass.Id): Option[Data] = eclass_data.get(id)
 

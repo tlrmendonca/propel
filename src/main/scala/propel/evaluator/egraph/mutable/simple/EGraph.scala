@@ -16,6 +16,7 @@ object EGraph:
     def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = ()
   })
 
+  /** Creates an [[Egraph]] given an [[Analysis]]. */
   def apply[A <: Analysis](analysis: A): EGraph[A] = BasicEGraph(analysis = analysis)
 
   /** An e-graph data structure. */
@@ -69,6 +70,11 @@ object EGraph:
         val yc0 = self.find(yc)
         if xc0 == yc0 then return xc0
 
+        // Note: *analysis.merge* needs to happen before *underlying.union* in order to stop it in case of contradiction
+        val xdata = self.analysis.getData(xc0.id)
+        val ydata = self.analysis.getData(yc0.id)
+        val data = self.analysis.merge(xdata.get, ydata.get) //FIXME: Unsafe
+            
         val xyc = self.underlying.union(xc0, yc0)
         val xycUses = self.uses.getOrElseUpdate(xyc.id, MutableMap())
         val other = if xyc.id == xc0.id then yc0 else xc0
@@ -76,14 +82,7 @@ object EGraph:
         xycUses.addAll(otherUses)
         self.uses.remove(other.id)
         
-        val xdata = self.analysis.getData(xc0.id)
-        val ydata = self.analysis.getData(yc0.id)
-        (xdata, ydata) match
-          case (Some(xd), Some(yd)) =>
-            val data = self.analysis.merge(xd, yd)
-            self.analysis.setData(xyc.id, data)
-          case _ => throw new java.lang.UnsupportedOperationException("Something went wrong in analysis merging, at least one data not found")
-        
+        self.analysis.setData(xyc.id, data)
         self.worklist.add(xyc.id)
         self.analysis.modify(self, xyc.id) // Before return = Modify
         xyc
@@ -115,7 +114,7 @@ object EGraph:
           
           // TODO: Turn this off in the future to test with a know to be correct analysis
           xcUses.foreach((x, xcStale) =>
-            self.lookup(x) match // TODO: Question - Do I need to lookup the node?
+            self.lookup(x) match
               case (_, Some(xcStale0)) =>
                 val data = self.analysis.getData(xcStale0.id).get //FIXME: Unsafe
                 val data2 = self.analysis.make(self, x)
@@ -124,7 +123,7 @@ object EGraph:
                 if newData != data then
                   self.analysis.setData(xcStale0.id, newData)
                   self.worklist.add(xcStale0.id)
-              case _ => throw new java.lang.UnsupportedOperationException("Something went wrong in analysis rebuilding") // FIXME: Change exception or use assert()
+              case _ => throw new java.lang.Exception("Something went wrong in analysis rebuilding") // FIXME: Change exception or use assert()
           )
 
         while (self.worklist.nonEmpty) {
@@ -144,6 +143,8 @@ object EGraph:
         val x0 = self.canonicalize(x)
         // TODO: Possible require(x0 belong to graph) => add .get below
         (x0, self.enodes.get(x0).map(self.classes))
+      
+      override def getEClassFromId(id: EClass.Id): EClass = self.classes(id)
 
       override def disunion(xc: EClass, yc: EClass): Unit =
         throw new java.lang.UnsupportedOperationException("disunion is not supported by traditional egraphs")
