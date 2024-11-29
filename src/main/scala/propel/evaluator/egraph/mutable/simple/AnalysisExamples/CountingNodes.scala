@@ -116,6 +116,7 @@ object CountingNodesAnalysis {
         println("\n*Goal 2* - Merge of two single-node classes is 2")
         
         egraph.union(a, b)
+        egraph.rebuild()
 
         println(prettyPrintEClasses(egraph.eclasses))
         println(prettyPrintData(counting_nodes_analysis.eclass_data.toMap))
@@ -125,12 +126,14 @@ object CountingNodesAnalysis {
         println("\n*Goal 3* - Merge of two multi-node classes is the sum of the nodes")
         egraph.union(c, d)
         egraph.union(c, e)
+        egraph.rebuild()
         
         println(prettyPrintEClasses(egraph.eclasses))
         println(prettyPrintData(counting_nodes_analysis.eclass_data.toMap))
         // ^ verify class with nodes c,d,e has data 3
 
         egraph.union(a, c)
+        egraph.rebuild()
 
         println(prettyPrintEClasses(egraph.eclasses))
         println(prettyPrintData(counting_nodes_analysis.eclass_data.toMap))

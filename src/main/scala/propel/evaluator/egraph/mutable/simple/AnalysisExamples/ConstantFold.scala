@@ -107,6 +107,7 @@ object ConstantFoldAnalysis {
           equalENodes.map(egraph.add)
         
         egraph.union(x, y)
+        egraph.rebuild()
         // ^ verify that the union is successful
 
         // Goal 2
@@ -145,6 +146,7 @@ object ConstantFoldAnalysis {
         // ^ created nodes fg(h) and f(gh) which should both have data "fgh"
 
         egraph.union(fg, f)
+        egraph.rebuild()
         // ^ verify that the union is successful
 
         // Goal 4
@@ -162,6 +164,7 @@ object ConstantFoldAnalysis {
         } catch {
           case e: Exception => Some(e)
         }
+        egraph.rebuild() // Note: perhaps unecessary since the union is supposed to be unsuccessful
         assert(exception.isDefined)
         println(s"Exception reached: ${exception.get.getMessage}")
         // ^ verify that the union is unsuccessful
@@ -182,6 +185,7 @@ object ConstantFoldAnalysis {
         } catch {
           case e: Exception => Some(e)
         }
+        egraph.rebuild() // Note: perhaps unecessary since the union is supposed to be unsuccessful
         assert(exception2.isDefined)
         println(s"Exception reached: ${exception2.get.getMessage}")
         // ^ verify that the union is unsuccessful
