@@ -9,7 +9,7 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet}
 object ConstantFoldAnalysis {
 
     def prettyPrintEClasses(eclasses: Map[EClass, Set[ENode]]): String = {
-      eclasses.map { case (eclass, enodes) =>
+      eclasses.toSeq.sortBy(_._1.toString).map { case (eclass, enodes) =>
         s"$eclass -> ${enodes.mkString(",")}"
       }.mkString("; ")
     }
@@ -19,7 +19,7 @@ object ConstantFoldAnalysis {
 
         /**
           * [[Constant Folding]]
-          * Level: Simple
+          * Level: Medium
           * Goal: Assert that all enodes deemed equal have the same constant value
           */
         val constant_fold_analysis = new Analysis {
