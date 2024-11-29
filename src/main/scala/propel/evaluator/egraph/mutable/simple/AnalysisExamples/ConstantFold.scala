@@ -7,77 +7,182 @@ import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 import collection.mutable.{Map as MutableMap, Set as MutableSet}
 
 object ConstantFoldAnalysis {
-    // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisExamples.testEGraph"
-    @main def testEGraph(): Unit =
+
+    def prettyPrintEClasses(eclasses: Map[EClass, Set[ENode]]): String = {
+      eclasses.map { case (eclass, enodes) =>
+        s"$eclass -> ${enodes.mkString(",")}"
+      }.mkString("; ")
+    }
+    // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisExamples.testConstantFold"
+    @main def testConstantFold(): Unit =
         import EGraph.EGraphOps
-        val empty_analysis = new Analysis {
-            type Data = Int
+
+        /**
+          * [[Constant Folding]]
+          * Level: Simple
+          * Goal: Assert that all enodes deemed equal have the same constant value
+          */
+        val constant_fold_analysis = new Analysis {
+
+            /**
+              * [[Data]] set as [[String]] to use [[ENode]]'s [[Operator]] as a constant value.
+              */
+            type Data = String
             val eclass_data = MutableMap()
-            def make[A <: Analysis, G[_ <: A]](g: G[A], x: ENode)(using EGraphOps[A, G]): Data = {
-            val xc = g.find(EClass(x))
-            eclass_data.update(xc.id, 0)
-            println(s"make on ($xc.id) and set data to (${eclass_data(xc.id)})")
-            0
+
+            /**
+              * Goal: Calculate the constant value if dependent on children.
+              * @note Let us assume a node can only have one children.
+              *
+              * @param g graph
+              * @param x node
+              * @return constant value of said node
+              */
+            def make[A <: Analysis, G[_ <: A]](egraph: G[A], x: ENode)(using EGraphOps[A, G]): Data = {
+              // define data
+              var cdata = ""
+              if !x.refs.isEmpty then
+                cdata = getData(x.refs.head.id).get
+              var data = x.op.toString + cdata
+
+              // exception - if op is y, then its x (simulating x is y conceptually)
+              // this is a *shortcut* to writting a decent example
+              if data == "y" then data = "x"
+
+              val xc = egraph.find(EClass(x))
+              eclass_data.update(xc.id, data)
+
+              println(s"Make: class ${xc} added and data set to ${eclass_data(xc.id)}")
+              return data
             }
+
+            /**
+              * Goal: Assert two classes have the same constant value.
+              *
+              * @param data1 data
+              * @param data2 data
+              * @return
+              */
             def merge(data1: Data, data2: Data): Data = {
-            println(s"merge($data1, $data2)")
-            1
+              if (data1 == data2) 
+                println(s"Merge: $data1 and $data2 are equal")
+                data1
+              else throw new Exception(s"Inconsistent data! Cannot merge ($data1) and ($data2)")  
             }
+
+            /**
+              * Goal: "Concretize" the constant value into a node, i.e. add a node to the class.
+              *
+              * @param egraph graph
+              * @param id class id
+              */
             def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = {
-            println(s"modify($id)")
+              val data = getData(id).get
+              val c = egraph.getEClassFromId(id)
+              val n = ENode(Operator(data))
+              // println("Wanted to add node: " + n)
+              val nc = egraph.add(n)
+              egraph.union(c, nc)
             }
         }
 
-        val egraph = EGraph(empty_analysis)
+        /**
+          * Goals: 
+          * 1. Union two equal values
+          * 2. Assert correct data creation and modify working (on node with a child)
+          * 3. Union two equivalent nodes (different children)
+          * 4. Assert two different nodes crash
+          * 5. Assert two equal value nodes with different children crash 
+          */
+        
+        val egraph = EGraph(constant_fold_analysis)
 
-        /** Define the elements of your egraphs. */
-        val constantsENodes @ Seq(an,bn,cn,dn,en,fn,gn,hn,in) = Seq(
-            ENode(Operator("a")),
-            ENode(Operator("b")),
-            ENode(Operator("c")),
-            ENode(Operator("d")),
-            ENode(Operator("e")),
-            ENode(Operator("f")),
-            ENode(Operator("g")),
-            ENode(Operator("h")),
-            ENode(Operator("i")),
+        // Goal 1
+        println("\n*Goal 1* - Union two equal values")
+        val equalENodes @ Seq(xn,yn) = Seq(
+          ENode(Operator("x")),
+          ENode(Operator("y")),
         )
-        val constantsEClasses @ Seq(a, b, c, d, e, f, g, h, i) =
-            constantsENodes.map(egraph.add)
+        val equalEClasses @ Seq(x, y) =
+          equalENodes.map(egraph.add)
+        
+        egraph.union(x, y)
+        // ^ verify that the union is successful
 
-        val operationsENodes @ Seq(fan, fbn) = Seq(
-            ENode(Operator("f"), Seq(a)),
-            ENode(Operator("f"), Seq(b)),
+        // Goal 2
+        println("\n*Goal 2* - Assert correct data creation and modify working (on node with a child)")
+        val constantsENodes @ Seq(an,bn) = Seq(
+          ENode(Operator("a")),
+          ENode(Operator("b")),
         )
-        val operationsEClasses @ Seq(fa, fb) = operationsENodes.map(egraph.add)
+        val constantsEClasses @ Seq(a, b) =
+          constantsENodes.map(egraph.add)
 
-        /** Encode equalities between the elements of your egraphs. */
-        // Equality Set: {a=b; c=d; e=f; c=b}
-        egraph.union(a, b)
-        egraph.union(c, d)
-        egraph.union(e, f)
-        egraph.union(c, b)
+        val en = ENode(Operator("e"), Seq(a))
+        val constantsEClasses2 @ Seq(e) = Seq(en).map(egraph.add)
+        // ^ verfiy make print produces "ea"
+        
+        println("CANONICALS:")
+        println((constantsEClasses ++ constantsEClasses2).map(e => s"$e -> ${egraph.find(e)}").mkString("; "))
+        println(prettyPrintEClasses(egraph.eclasses))
+        // ^ verify that modify adds the node "ea" instead of "e(a)"
 
-        /** Rebuild egraph to restore congruence invariance. */
-        // Congruence Invariance: Vf Vx Vy. x=y -> f(x)=f(y)
-        // In this case, a=b -> f(a)=f(b)
-        egraph.rebuild()
+        // Goal 3
+        println("\n*Goal 3* - Union two equivalent nodes (different children)")
+        val equivalentENodes1 @ Seq(hn, ghn) = Seq(
+          ENode(Operator("h")),
+          ENode(Operator("gh")),
+        )
+        val equivalentEClasses1 @ Seq(h, gh) =
+          equivalentENodes1.map(egraph.add)
 
-        println("\nCANONICALIZATION:")
-        println(s"canonicalize($fan): ${egraph.canonicalize(fan)}")
-        println(s"canonicalize($fbn): ${egraph.canonicalize(fbn)}")
+        val equivalentENodes2 @ Seq(fgn, fn) = Seq(
+          ENode(Operator("fg"), Seq(h)),
+          ENode(Operator("f"), Seq(gh)),
+        )
+        val equivalentEClasses2 @ Seq(fg, f) =
+          equivalentENodes2.map(egraph.add)
+        // ^ created nodes fg(h) and f(gh) which should both have data "fgh"
 
-        println("\nCANONICALS:")
-        println((constantsEClasses ++ operationsEClasses).map(e => s"$e -> ${egraph.find(e)}").mkString("; "))
+        egraph.union(fg, f)
+        // ^ verify that the union is successful
 
-        println("\nECLASSES")
-        println(s"eclasses: ${egraph.eclasses.map(_ -> _.mkString("{",";","}"))}")
-        println(s"# eclasses: ${egraph.eclasses.size}")
-        println(s"# enodes: ${egraph.eclasses.foldLeft(0)(_ + _._2.size)}")
+        // Goal 4
+        println("\n*Goal 4* - Assert two different nodes crash")
+        val differentENodes @ Seq(cn,dn) = Seq(
+          ENode(Operator("c")),
+          ENode(Operator("d")),
+        )
+        val differentEClasses @ Seq(c, d) =
+          differentENodes.map(egraph.add)
 
-        println("\nEQUALITY:")
-        println(s"a = b: ${egraph.equal(a, b)}")
-        println(s"f(a) = f(b): ${egraph.equal(fa, fb)}")
-        // ^ Note that you never explicitly add the equality f(a) = f(b) to the egraph,
-        //   but it is inferred from the equality a = b due to congruence invariance.
+        val exception = try {
+          egraph.union(c, d)
+          None
+        } catch {
+          case e: Exception => Some(e)
+        }
+        assert(exception.isDefined)
+        println(s"Exception reached: ${exception.get.getMessage}")
+        // ^ verify that the union is unsuccessful
+
+        // Goal 5
+        println("\n*Goal 5* - Assert two equal value nodes with different children crash")
+        val differentChildrenENodes @ Seq(icn, idn) = Seq(
+          ENode(Operator("i"), Seq(c)),
+          ENode(Operator("i"), Seq(d)),
+        )
+        val differentChildrenEClasses @ Seq(ic, id) =
+          differentChildrenENodes.map(egraph.add)
+        
+        println(prettyPrintEClasses(egraph.eclasses))
+        val exception2 = try {
+          egraph.union(ic, id)
+          None
+        } catch {
+          case e: Exception => Some(e)
+        }
+        assert(exception2.isDefined)
+        println(s"Exception reached: ${exception2.get.getMessage}")
+        // ^ verify that the union is unsuccessful
 }
