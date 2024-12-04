@@ -3,7 +3,7 @@ package propel.evaluator.egraph
 import propel.evaluator.egraph.{EClass, ENode, Language}
 import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 
-import collection.mutable.{Map as MutableMap, Set as MutableSet}
+import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 
 /**
  * An tool to analyse data in an egraph in parallel with egraph operations.
@@ -11,9 +11,7 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet}
  */
 trait Analysis:
     type Data;
-    val eclass_data: MutableMap[EClass.Id, Data]; // TODO: make this private
-
-    // TODO: init function taking a data type "Data" to initialize eclass_data
+    val eclass_data: MutableMap[EClass.Id, Data];
 
     def getData(id: EClass.Id): Option[Data] = eclass_data.get(id)
 
@@ -26,6 +24,8 @@ trait Analysis:
       * 
       * @param egraph the specified [[Egraph]].
       * @param enode the specified [[ENode]].
+      * @param operations an optional map of operations, mapping [[Operator]]s to functions, to be
+      * used in the process of making the [[Data]]
       * @return the data of the new [[EClass]].
       * 
       * @note This function is not responsible for adding the [[ENode]], nor storing the [[Data]].
@@ -34,7 +34,7 @@ trait Analysis:
       * For more information, refer to [[EGraph.add]]. This implies the client can search
       * the graph to find the [[EClass]] of the given [[ENode]] safely.
       */
-    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data;
+    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode, operations: MutableHashMap[String, Function1[Any, String]] = MutableHashMap.empty)(using EGraphOps[A, G]): Data;
 
     /**
       * Defines how to merge two datas.

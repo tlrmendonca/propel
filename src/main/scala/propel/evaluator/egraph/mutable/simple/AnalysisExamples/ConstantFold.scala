@@ -4,7 +4,8 @@ import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
 import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 
-import collection.mutable.{Map as MutableMap, Set as MutableSet}
+import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
+import java.util.HashMap
 
 object ConstantFoldAnalysis {
 
@@ -38,7 +39,7 @@ object ConstantFoldAnalysis {
               * @param x node
               * @return constant value of said node
               */
-            def make[A <: Analysis, G[_ <: A]](egraph: G[A], x: ENode)(using EGraphOps[A, G]): Data = {
+            def make[A <: Analysis, G[_ <: A]](egraph: G[A], x: ENode, operations: MutableHashMap[String, Function1[Any, String]] = MutableHashMap.empty)(using EGraphOps[A, G]): Data = {
               // define data
               var cdata = ""
               if !x.refs.isEmpty then
@@ -47,7 +48,7 @@ object ConstantFoldAnalysis {
 
               // exception - if op is y, then its x (simulating x is y conceptually)
               // this is a *shortcut* to writting a decent example
-              if data == "y" then data = "x"
+              // if data == "y" then data = "x"
 
               val xc = egraph.find(EClass(x))
               eclass_data.update(xc.id, data)
@@ -80,7 +81,6 @@ object ConstantFoldAnalysis {
               val data = getData(id).get
               val c = egraph.getEClassFromId(id)
               val n = ENode(Operator(data))
-              // println("Wanted to add node: " + n)
               val nc = egraph.add(n)
               egraph.union(c, nc)
             }
@@ -88,26 +88,29 @@ object ConstantFoldAnalysis {
 
         /**
           * Goals: 
-          * 1. Union two equal values
+          * 1. Union two equal values (@note: deprecated)
           * 2. Assert correct data creation and modify working (on node with a child)
           * 3. Union two equivalent nodes (different children)
           * 4. Assert two different nodes crash
-          * 5. Assert two equal value nodes with different children crash 
+          * 5. Assert two equal value nodes with different children crash
+          * 
+          * Additional goal:
+            6. 
           */
         
         val egraph = EGraph(constant_fold_analysis)
 
         // Goal 1
-        println("\n*Goal 1* - Union two equal values")
-        val equalENodes @ Seq(xn,yn) = Seq(
-          ENode(Operator("x")),
-          ENode(Operator("y")),
-        )
-        val equalEClasses @ Seq(x, y) =
-          equalENodes.map(egraph.add)
+        // println("\n*Goal 1* - Union two equal values")
+        // val equalENodes @ Seq(xn,yn) = Seq(
+        //   ENode(Operator("x")),
+        //   ENode(Operator("y")),
+        // )
+        // val equalEClasses @ Seq(x, y) =
+        //   equalENodes.map(egraph.add)
         
-        egraph.union(x, y)
-        egraph.rebuild()
+        // egraph.union(x, y)
+        // egraph.rebuild()
         // ^ verify that the union is successful
 
         // Goal 2
@@ -189,4 +192,16 @@ object ConstantFoldAnalysis {
         assert(exception2.isDefined)
         println(s"Exception reached: ${exception2.get.getMessage}")
         // ^ verify that the union is unsuccessful
+
+        val egraph2 = EGraph(constant_fold_analysis)
+
+        // (Additional) Goal 6
+        val oneNode = ENode(Operator("1"))
+        val one = egraph2.add(oneNode)
+
+        val onePlusOneNode = ENode(Operator("+"), Seq(one, one))
+        val onePlusOne = egraph2.add(onePlusOneNode)
+
+        
+        
 }

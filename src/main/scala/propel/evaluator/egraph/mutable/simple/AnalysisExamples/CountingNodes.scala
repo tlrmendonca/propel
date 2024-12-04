@@ -4,7 +4,7 @@ import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
 import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 
-import collection.mutable.{Map as MutableMap, Set as MutableSet}
+import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 
 object CountingNodesAnalysis {
 
@@ -51,7 +51,7 @@ object CountingNodesAnalysis {
               * @param x node
               * @return Tuple (1, node)
               */
-            def make[A <: Analysis, G[_ <: A]](egraph: G[A], x: ENode)(using EGraphOps[A, G]): Data = {
+            def make[A <: Analysis, G[_ <: A]](egraph: G[A], x: ENode, operations: MutableHashMap[String, Function1[Any, String]] = MutableHashMap.empty)(using EGraphOps[A, G]): Data = {
               val xc = egraph.find(EClass(x))
               eclass_data.update(xc.id, (1, Seq(x)))
 

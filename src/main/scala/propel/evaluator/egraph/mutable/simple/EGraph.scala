@@ -3,7 +3,7 @@ package propel.evaluator.egraph.mutable.simple
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
 import propel.evaluator.egraph.mutable.simple.EGraphOps
-import collection.mutable.{Map as MutableMap, Set as MutableSet}
+import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 
 /** Definition of a mutable egraph. */
 object EGraph:
@@ -11,7 +11,7 @@ object EGraph:
   def apply(): EGraph[Analysis] = BasicEGraph(analysis = new Analysis {
     type Data = Int
     val eclass_data = MutableMap()
-    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data = 0
+    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode, operations: MutableHashMap[String, Function1[Any, String]] = MutableHashMap.empty)(using EGraphOps[A, G]): Data = 0
     def merge(data1: Data, data2: Data): Data = 0
     def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = ()
   })
