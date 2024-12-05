@@ -12,6 +12,7 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as Muta
 trait Analysis:
     type Data;
     val eclass_data: MutableMap[EClass.Id, Data];
+    val operations: MutableHashMap[Operator, (Function1[Seq[Data], String], Int)] = MutableHashMap.empty;
 
     def getData(id: EClass.Id): Option[Data] = eclass_data.get(id)
 
@@ -34,7 +35,7 @@ trait Analysis:
       * For more information, refer to [[EGraph.add]]. This implies the client can search
       * the graph to find the [[EClass]] of the given [[ENode]] safely.
       */
-    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode, operations: MutableHashMap[String, Function1[Any, String]] = MutableHashMap.empty)(using EGraphOps[A, G]): Data;
+    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data;
 
     /**
       * Defines how to merge two datas.
