@@ -43,7 +43,7 @@ object AdvConstantFoldAnalysis {
         * @param x node
         * @return constant value of said node
         */
-      def make[A <: Analysis, G[_ <: A]](egraph: G[A], x: ENode)(using EGraphOps[A, G]): Data = {
+      def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
         
         val f = operations.getOrElse(x.op, null)
         val args = x.refs.map(ref => getData(ref.id).get)
@@ -83,7 +83,7 @@ object AdvConstantFoldAnalysis {
         * @param egraph graph
         * @param id class id
         */
-      def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = {
+      def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
         val original_class = egraph.getEClassFromId(id)
         val data = getData(id).get
         val new_node = ENode(Operator(data)) // concretize
@@ -112,7 +112,8 @@ object AdvConstantFoldAnalysis {
       * Goals: 
       * 1. TBD
       */
-    val egraph = EGraph(adv_constant_fold_analysis)
+    val egraph = EGraph()
+    egraph.addAnalysis(adv_constant_fold_analysis)
 
     val numberedENodes @ Seq(onen, twon, threen, fourn) = Seq(
       ENode(Operator("1")),
@@ -156,9 +157,10 @@ object AdvConstantFoldAnalysis {
 
     /**
       * Goals: 
-      * 1. 
+      * 1. TBD
       */
-    val egraph = EGraph(adv_constant_fold_analysis)
+    val egraph = EGraph()
+    egraph.addAnalysis(adv_constant_fold_analysis)
 
     val numberedENodes @ Seq(onen, twon, threen, fourn) = Seq(
       ENode(Operator("1")),

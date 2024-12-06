@@ -51,7 +51,7 @@ object CountingNodesAnalysis {
           * @param x node
           * @return Tuple (1, node)
           */
-        def make[A <: Analysis, G[_ <: A]](egraph: G[A], x: ENode)(using EGraphOps[A, G]): Data = {
+        def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
           val xc = egraph.find(EClass(x))
           eclass_data.update(xc.id, (1, Seq(x)))
 
@@ -82,7 +82,7 @@ object CountingNodesAnalysis {
           * @param egraph graph
           * @param id class id
           */
-        def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = {
+        def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
           return
         }
     }
@@ -94,7 +94,8 @@ object CountingNodesAnalysis {
       * 3. Merge of two multi-node classes is the sum of the nodes
       */
     
-    val egraph = EGraph(counting_nodes_analysis)
+    val egraph = EGraph()
+    egraph.addAnalysis(counting_nodes_analysis)
 
     // Goal 1
     println("\n*Goal 1* - Assert correct data creation")

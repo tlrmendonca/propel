@@ -47,7 +47,7 @@ object ConstantFoldAnalysis {
           * @param x node
           * @return constant value of said node
           */
-        def make[A <: Analysis, G[_ <: A]](egraph: G[A], x: ENode)(using EGraphOps[A, G]): Data = {
+        def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
           // define data
           var cdata = ""
           if !x.refs.isEmpty then
@@ -86,7 +86,7 @@ object ConstantFoldAnalysis {
           * @param egraph graph
           * @param id class id
           */
-        def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = {
+        def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
           val data = getData(id).get
           val c = egraph.getEClassFromId(id)
           val n = ENode(Operator(data))
@@ -107,7 +107,8 @@ object ConstantFoldAnalysis {
         6. Test operations
       */
     
-    val egraph = EGraph(constant_fold_analysis)
+    val egraph = EGraph()
+    egraph.addAnalysis(constant_fold_analysis)
     
     // (deprecated)
     // Goal 1: Union two equal values

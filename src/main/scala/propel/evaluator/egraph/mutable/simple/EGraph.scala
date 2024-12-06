@@ -8,29 +8,29 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as Muta
 /** Definition of a mutable egraph. */
 object EGraph:
   /** Alias for [[empty]]. */
-  def apply(): EGraph[Analysis] = BasicEGraph(analysis = new Analysis {
-    type Data = Int
-    val eclass_data = MutableMap()
-    def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data = 0
-    def merge(data1: Data, data2: Data): Data = 0
-    def modify[A <: Analysis, G[_ <: A]](egraph: G[A], id: EClass.Id)(using EGraphOps[A, G]): Unit = ()
-  })
+  // def apply(): EGraph[Analysis] = BasicEGraph(analysis = new Analysis {
+  //   type Data = Int
+  //   val eclass_data = MutableMap()
+  //   def make[A <: Analysis, G[_ <: A]](egraph: G[A], enode: ENode)(using EGraphOps[A, G]): Data = 0
+  //   def merge(data1: Data, data2: Data): Data = 0
+  //   def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = ()
+  // })
 
   /** Creates an [[Egraph]] given an [[Analysis]]. */
-  def apply[A <: Analysis](analysis: A): EGraph[A] = BasicEGraph(analysis = analysis)
+  def apply(): EGraph = BasicEGraph()
 
   /** An e-graph data structure. */
-  opaque type EGraph[A <: Analysis] = BasicEGraph[A] // Jahrim Assistance
-  given EGraphOps[A <: Analysis]: EGraphOps[A, EGraph] = new BasicEGraphOps[A] {} // Jahrim Assistance
+  opaque type EGraph = BasicEGraph // Jahrim Assistance
+  given EGraphOps: EGraphOps[EGraph] = new BasicEGraphOps {} // Jahrim Assistance
 
   /** Basic implementation of an e-graph. */
-  private case class BasicEGraph[A <: Analysis](
+  private case class BasicEGraph(
     underlying: UnionFind.UnionFind[EClass] = UnionFind(),
     classes: MutableMap[EClass.Id, EClass] = MutableMap(),
     enodes: MutableMap[ENode, EClass.Id] = MutableMap(),
     uses: MutableMap[EClass.Id, MutableMap[ENode, EClass]] = MutableMap(),
     worklist: MutableSet[EClass.Id] = MutableSet(),
-    analysis: A,
+    analysisRunner: AnalysisRunner = AnalysisRunner()
   ):
     override def toString: String =
       s"""EGraph:
@@ -42,10 +42,14 @@ object EGraph:
         |""".stripMargin
 
   /** Basic operations for egraphs. */
-  private trait BasicEGraphOps[A <: Analysis] extends EGraphOps[A, BasicEGraph]:
-    extension (self: BasicEGraph[A]) {
+  private trait BasicEGraphOps extends EGraphOps[BasicEGraph]:
+    extension (self: BasicEGraph) {
       override def eclasses: Map[EClass, Set[ENode]] =
         self.enodes.groupBy((x, xcId) => self.find(self.classes(xcId))).map(_ -> _.toMap.keySet)
+
+      override def addAnalysis(analysis: Analysis): Unit =
+        self.analysisRunner.add(analysis)
+
       override def add(x: ENode): EClass =
         self.lookup(x) match
           case (_, Some(xc)) => xc
@@ -60,9 +64,8 @@ object EGraph:
               self.uses.update(xc0.id, MutableMap())
               self.enodes.update(x0, xc0.id)
             
-            val data = self.analysis.make(self, x0)
-            self.analysis.setData(xc0.id, data)
-            self.analysis.modify(self, xc0.id) // Before return = Modify
+            self.analysisRunner.make(self, x0)
+            self.analysisRunner.modify(self, xc0.id)
             xc0
 
       override def union(xc: EClass, yc: EClass): EClass =
@@ -70,10 +73,8 @@ object EGraph:
         val yc0 = self.find(yc)
         if xc0 == yc0 then return xc0
 
-        // Note: *analysis.merge* needs to happen before *underlying.union* in order to stop it in case of contradiction
-        val xdata = self.analysis.getData(xc0.id)
-        val ydata = self.analysis.getData(yc0.id)
-        val data = self.analysis.merge(xdata.get, ydata.get) //FIXME: Unsafe
+        // Note: *analysisRunner.merge* needs to happen before *underlying.union* in order to stop it in case of contradiction
+        self.analysisRunner.merge(xc0.id, yc0.id)
             
         val xyc = self.underlying.union(xc0, yc0)
         val xycUses = self.uses.getOrElseUpdate(xyc.id, MutableMap())
@@ -82,9 +83,8 @@ object EGraph:
         xycUses.addAll(otherUses)
         self.uses.remove(other.id)
         
-        self.analysis.setData(xyc.id, data)
         self.worklist.add(xyc.id)
-        self.analysis.modify(self, xyc.id) // Before return = Modify
+        self.analysisRunner.modify(self, xyc.id)
         xyc
 
       override def find(xc: EClass): EClass =
@@ -110,19 +110,21 @@ object EGraph:
           )
           self.uses.update(self.find(xc).id, distinctUses)
 
-          self.analysis.modify(self, xc.id) // This may break invariants
+          self.analysisRunner.modify(self, xc.id) // This may break invariants
           
           // TODO: Turn this off in the future to test with a know to be correct analysis
           xcUses.foreach((x, xcStale) =>
             self.lookup(x) match
               case (_, Some(xcStale0)) =>
-                val data = self.analysis.getData(xcStale0.id).get //FIXME: Unsafe
-                val data2 = self.analysis.make(self, x)
-                val newData = self.analysis.merge(data, data2)
+                self.analysisRunner.getAnalysisList().foreach(analysis =>
+                  val data = analysis.getData(xcStale0.id).get //FIXME: Unsafe
+                  val data2 = analysis.make(self, x)
+                  val newData = analysis.merge(data, data2)
 
-                if newData != data then
-                  self.analysis.setData(xcStale0.id, newData)
-                  self.worklist.add(xcStale0.id)
+                  if newData != data then
+                    analysis.setData(xcStale0.id, newData)
+                    self.worklist.add(xcStale0.id) // This is only fine inside the forEach because it is a **Set**
+                )
               case _ => throw new java.lang.Exception("Something went wrong in analysis rebuilding") // FIXME: Change exception or use assert()
           )
 
