@@ -37,7 +37,6 @@ object AdvConstantFoldAnalysis {
 
       /**
         * Goal: Calculate the constant value if dependent on children.
-        * @note Let us assume a node can only have one children.
         *
         * @param g graph
         * @param x node
@@ -93,7 +92,7 @@ object AdvConstantFoldAnalysis {
   }
 
   val functions = MutableHashMap[Operator, (Function1[Seq[String], String], Int)](
-    Operator("sum") -> (args => ((args(0).toInt + args(1).toInt).toString), 2),
+    Operator("+") -> (args => ((args(0).toInt + args(1).toInt).toString), 2),
     Operator("sub") -> (args => ((args(0).toInt - args(1).toInt).toString), 2),
     Operator("mul") -> (args => ((args(0).toInt * args(1).toInt).toString), 2),
     Operator("div") -> (args => ((args(0).toInt / args(1).toInt).toString), 2),
@@ -128,28 +127,22 @@ object AdvConstantFoldAnalysis {
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
 
-    // sum(1,4)
-    val sum1n = ENode(Operator("sum"), Seq(one, four))
+    // +(1,4)
+    val sum1n = ENode(Operator("+"), Seq(one, four))
     val sum1 = egraph.add(sum1n)
     
     println("AFTER ADDING SUM1:")
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
     
-    // sum(2,3)
-    val sum2n = ENode(Operator("sum"), Seq(two, three))
+    // +(2,3)
+    val sum2n = ENode(Operator("+"), Seq(two, three))
     val sum2 = egraph.add(sum2n)
+
     println("AFTER ADDING SUM2:")
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
-
-    // egraph.union(sum, three)
-    // // ^ verify that the union is successful and cx={1+2,3}
-
-    // egraph.rebuild()
-    // println("END:")
-    // println(prettyPrintEClasses(egraph.eclasses))
-    // println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
+    // ^ notice that the union is not needed to join +(2,3) to +(1,4)
 
   // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisExamples.testAdvConstantFoldComplete"
   @main def testAdvConstantFoldComplete(): Unit =
@@ -175,7 +168,7 @@ object AdvConstantFoldAnalysis {
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
 
-    val sumn = ENode(Operator("sum"), Seq(one, two))
+    val sumn = ENode(Operator("+"), Seq(one, two))
     val subn = ENode(Operator("sub"), Seq(three, two))
     val muln = ENode(Operator("mul"), Seq(one, one))
     val divn = ENode(Operator("div"), Seq(three, one))

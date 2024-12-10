@@ -11,7 +11,7 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as Muta
 trait Analysis:
     type Data;
     val eclass_data: MutableMap[EClass.Id, Data];
-    val operations: MutableHashMap[Operator, (Function1[Seq[Data], String], Int)] = MutableHashMap.empty; // TODO: string must be Data
+    val operations: MutableHashMap[Operator, (Function1[Seq[Data], Data], Int)] = MutableHashMap.empty; // TODO: string must be Data
 
     def getData(id: EClass.Id): Option[Data] = eclass_data.get(id)
 
@@ -26,7 +26,7 @@ trait Analysis:
       * @param enode the specified [[ENode]].
       * @return the data of the new [[EClass]].
       * 
-      * @note This function is not responsible for adding the [[ENode]], nor storing the [[Data]].
+      * @note This function is NOT responsible for adding the [[ENode]], NOR STORING the [[Data]].
       * It should be called in the process of adding an [[ENode]] to an [[EGraph]].
       * @note This function expects given [[ENode]] to be cannonical of its [[EClass]].
       * For more information, refer to [[EGraph.add]]. This implies the client can search
