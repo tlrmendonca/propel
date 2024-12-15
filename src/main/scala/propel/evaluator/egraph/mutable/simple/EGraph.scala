@@ -54,6 +54,9 @@ object EGraph:
         self.lookup(x) match
           case (_, Some(xc)) => xc
           case (x0, _) =>
+            // Note: *analysisRunner.make* needs to happen before *underlying.union* in order to stop it in case of contradiction
+            self.analysisRunner.make(self, x0)
+
             val xc0 = self.find(EClass(x0))
             x0.refs.foreach(refc =>
               self.classes.update(refc.id, refc)
@@ -64,7 +67,6 @@ object EGraph:
               self.uses.update(xc0.id, MutableMap())
               self.enodes.update(x0, xc0.id)
             
-            self.analysisRunner.make(self, x0)
             self.analysisRunner.modify(self, xc0.id)
             xc0
 

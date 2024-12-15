@@ -3,7 +3,7 @@ package propel.evaluator.egraph
 import propel.evaluator.egraph.{EClass, ENode, Language}
 import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 
-import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
+import collection.mutable.{Map as MutableMap, Set as MutableSet}
 
 /**
  * A tool to analyse data in an egraph in parallel with egraph operations.
@@ -11,7 +11,7 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as Muta
 trait Analysis:
     type Data;
     val eclass_data: MutableMap[EClass.Id, Data];
-    val operations: MutableHashMap[Operator, (Function1[Seq[Data], Data], Int)] = MutableHashMap.empty; // TODO: string must be Data
+    val operations: MutableMap[Operator, (Function1[Seq[Data], Data], Int)] = MutableMap.empty;
 
     def getData(id: EClass.Id): Option[Data] = eclass_data.get(id)
 
