@@ -2,10 +2,9 @@ package propel.evaluator.egraph.mutable.simple.AnalysisExamples
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
-import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
+import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, AnalysisType, BType}
 
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
-import java.util.HashMap
 
 object TypeFoldAnalysis {
 
@@ -18,7 +17,7 @@ object TypeFoldAnalysis {
   def prettyPrintData[D](data: Map[EClass.Id, D]): String = {
     data.toSeq.sortBy(_._1.toString).map { case (id, data) =>
       val str = id.toString.stripPrefix("Symbol(").stripSuffix(")")
-      s"$str -> $data"
+      s"$str -> ${data.toString}"
     }.mkString("; ")
   }
 
@@ -32,7 +31,7 @@ object TypeFoldAnalysis {
       /**
         * [[Data]] set as [[String]] to simplify representation of types.
         */
-      type Data = String
+      type Data = AnalysisType
       val eclass_data = MutableMap()
 
       /**
@@ -43,18 +42,14 @@ object TypeFoldAnalysis {
         * @return type of said node
         */
       def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
-        var data = ""
-
         val f = operations.getOrElse(x.op, null)
         val args = x.refs.map(ref => getData(ref.id).get)
         f match {
-          case null => data = toType(x.op)
-          case f: (Function1[Seq[String], String], Int) =>
+          case null => AnalysisType(toType(x.op))
+          case f: (Function1[Seq[AnalysisType], AnalysisType], Int) =>
             if (args.length != f._2) throw new Exception("Invalid number of arguments, expected " + f._2 + ", but " + args.length + " given")
-            data = f._1(args)
+            f._1(args)
         }
-        
-        return data
       }
 
       /**
@@ -65,11 +60,12 @@ object TypeFoldAnalysis {
         * @param op operator
         * @return type of said operator
         */
-      def toType(op: Operator): String = {
+      def toType(op: Operator): BType = {
         op.toString match {
-          case "true" | "false" => "Boolean"
-          case s if s.matches("""-?\d+(\.\d+)?""") => "Number"
-          case _ => "String" }
+          case "true" | "false" => BType.Boolean
+          case s if s.matches("""-?\d+(\.\d+)?""") => BType.Number
+          case _ => BType.String
+        }
       }
 
       /**
@@ -83,7 +79,7 @@ object TypeFoldAnalysis {
         if (data1 == data2) 
           println(s"Merge: $data1 and $data2 are the same type")
           data1
-        else throw new Exception(s"Inconsistent types! Cannot merge ($data1) and ($data2)") 
+        else throw new Exception(s"Inconsistent types! Cannot merge (${data1.toString()}) and (${data2.toString()})") 
       }
 
       /**
@@ -97,8 +93,17 @@ object TypeFoldAnalysis {
       }
   }
 
-  val functions = MutableHashMap[Operator, (Function1[Seq[String], String], Int)](
-    Operator("+") -> (args => ( if args(0) == "Number" && args(1) == "Number" then "Number" else throw new Exception(s"Invalid types for +, given (${args(0)}) and (${args(1)})")), 2),
+  val functions = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)](
+    Operator("+") -> (args => (
+      if args(0).basicType == BType.Number && args(1).basicType == BType.Number
+      then AnalysisType(BType.Number)
+      else throw new Exception(s"Invalid types for +, given (${args(0)}) and (${args(1)})")
+    ),2),
+    Operator("add1") -> (args => (
+      if args(0).basicType == BType.Number
+      then AnalysisType(Seq(AnalysisType(BType.Number)), AnalysisType(BType.Number))
+      else throw new Exception(s"Invalid types for add1, given (${args(0)})")
+    ),1)
   )
 
   // Functions need to be added since operations is unmodifiable
@@ -116,47 +121,47 @@ object TypeFoldAnalysis {
     val egraph = EGraph()
     egraph.addAnalysis(type_fold_analysis)
 
-    val numberedENodes @ Seq(onen, twon, threen, fourn, tn, strn) = Seq(
+    val numberedENodes @ Seq(onen, twon, tn, strn) = Seq(
       ENode(Operator("1")),
       ENode(Operator("2")),
-      ENode(Operator("3")),
-      ENode(Operator("4")),
       ENode(Operator("true")),
       ENode(Operator("str")),
     )
-    val numberedEClasses @ Seq(one, two, three, four, t, str) =
+    val numberedEClasses @ Seq(one, two, t, str) =
       numberedENodes.map(egraph.add)
       
-    println("BEFORE ADDING SUM:")
+    println("INITIAL STATE:")
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
 
     // +(1,4) -> Int
-    val sum1n = ENode(Operator("+"), Seq(one, four))
+    val sum1n = ENode(Operator("+"), Seq(one, two))
     val sum1 = egraph.add(sum1n)
     
-    println("AFTER ADDING SUM1:")
+    println("\nAFTER ADDING SUM1:")
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
-    
-    // +(2,+(1,4)) -> Int
-    val sum2n = ENode(Operator("+"), Seq(two, sum1))
-    val sum2 = egraph.add(sum2n)
-
-    println("AFTER ADDING SUM2:")
-    println(prettyPrintEClasses(egraph.eclasses))
-    println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
-    // ^ notice that the type match
 
     val exception = try {
-      val sum3n = ENode(Operator("+"), Seq(one, str))
-      val sum3 = egraph.add(sum3n)
+      val sum2n = ENode(Operator("+"), Seq(one, str))
+      val sum2 = egraph.add(sum2n)
       None
     } catch {
       case e: Exception => Some(e)
     }
-    egraph.rebuild()
     assert(exception.isDefined)
-    println(s"Exception reached: ${exception.get.getMessage}")
+    println(s"\nException reached: ${exception.get.getMessage}")
     // ^ type mismatch
+
+    val addersENodes @ Seq(adder1n, adder2n) = Seq(
+      ENode(Operator("add1"), Seq(one)),
+      ENode(Operator("add1"), Seq(two))
+    )
+    val addersEClasses @ Seq(adder1, adder2) = addersENodes.map(egraph.add)
+
+    println("\nAFTER ADDING ADDERS:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
+    println("adder1 type: " + type_fold_analysis.eclass_data(adder1.id))
+    println("equivalent: " + AnalysisType(Seq(AnalysisType(BType.Number)), AnalysisType(BType.Number)))
 }
