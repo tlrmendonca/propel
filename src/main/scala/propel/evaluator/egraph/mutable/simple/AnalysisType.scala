@@ -27,11 +27,10 @@ object AnalysisType:
   case class BasicType( var basicType: BType) extends AnalysisType { 
     override def toString(): String = basicType.toString()
   }
-  /** Note that here [[args]] and [[ret]] are [[AnalysisType]], because functions can receive and return functions.
+  /** 
+   * Note that here [[args]] and [[ret]] are [[AnalysisType]], because functions can receive and return functions.
    * [[BasicType]]s are not like this since basicType is the only thing they need to store, which is always an [[BType]].
-   * 
-   * @note The toString() method becomes quite verbose. Perhaps there's a better alternative.
    */
   case class FuncType( var basicType: BType = BType.Function, var args: Seq[AnalysisType], var ret: AnalysisType ) extends AnalysisType {
-    override def toString(): String = s"(${args.map(_.basicType).map(_.toString()).mkString(", ")}) -> ${ret.basicType.toString()}"
+    override def toString(): String = s"(${args.map(_.toString()).mkString(", ")}) -> ${ret.toString()}"
   }

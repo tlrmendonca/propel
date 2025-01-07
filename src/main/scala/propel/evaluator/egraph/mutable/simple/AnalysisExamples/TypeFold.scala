@@ -45,7 +45,7 @@ object TypeFoldAnalysis {
         val f = operations.getOrElse(x.op, null)
         val args = x.refs.map(ref => getData(ref.id).get)
         f match {
-          case null => AnalysisType(toType(x.op))
+          case null => AnalysisType(toType(x.op)) // TODO: distinguish a value from a non-defined function symbol ?
           case f: (Function1[Seq[AnalysisType], AnalysisType], Int) =>
             if (args.length != f._2) throw new Exception("Invalid number of arguments, expected " + f._2 + ", but " + args.length + " given")
             f._1(args)
@@ -93,6 +93,8 @@ object TypeFoldAnalysis {
       }
   }
 
+  // TODO: there operators are very complicated and could use a refactor
+  // Something that would put emphasis on the logic part and leave the exception handling in another place
   val functions = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)](
     Operator("+") -> (args => (
       if args(0).basicType == BType.Number && args(1).basicType == BType.Number
@@ -129,7 +131,7 @@ object TypeFoldAnalysis {
     )
     val numberedEClasses @ Seq(one, two, t, str) =
       numberedENodes.map(egraph.add)
-      
+    
     println("INITIAL STATE:")
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
