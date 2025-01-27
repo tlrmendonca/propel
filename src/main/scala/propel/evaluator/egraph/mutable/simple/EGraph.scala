@@ -84,6 +84,7 @@ object EGraph:
         val otherUses = self.uses.getOrElseUpdate(other.id, MutableMap())
         xycUses.addAll(otherUses)
         self.uses.remove(other.id)
+        self.analysisRunner.deleteData(other.id)
         
         self.worklist.add(xyc.id)
         self.analysisRunner.modify(self, xyc.id)

@@ -17,6 +17,8 @@ trait Analysis:
 
     def setData(id: EClass.Id, data: Data): Unit = eclass_data.update(id, data)
 
+    def deleteData(id: EClass.Id): Unit = eclass_data.remove(id)
+
     // TODO: getOrMakeData(class.id)
 
     /**

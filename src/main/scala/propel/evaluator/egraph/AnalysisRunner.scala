@@ -24,12 +24,12 @@ class AnalysisRunner {
     }
 
     /**
-      * Runs *make* for each analysis.
-      * 
-      * @param egraph the specified [[Egraph]].
-      * @param enode the specified [[ENode]].
-      * 
-      */
+         * Runs *make* for each analysis.
+         * 
+         * @param egraph the specified [[Egraph]].
+         * @param enode the specified [[ENode]].
+         * 
+         */
     def make[G](egraph: G, enode: ENode)(using EGraphOps[G]): Unit = {
         analysisList.foreach(analysis => 
             val data = analysis.make(egraph, enode)
@@ -38,11 +38,11 @@ class AnalysisRunner {
     }
 
     /**
-      * Runs *merge* for each analysis.
-      *
-      * @param data1 the data of the first EClass.
-      * @param data2 the data of the second EClass, to be merged.
-      */
+         * Runs *merge* for each analysis.
+         *
+         * @param data1 the data of the first EClass.
+         * @param data2 the data of the second EClass, to be merged.
+         */
     def merge(id1: EClass.Id, id2: EClass.Id): Unit = {
         analysisList.foreach(analysis =>
             val data1 = analysis.getData(id1).get
@@ -58,15 +58,26 @@ class AnalysisRunner {
     }
 
     /**
-      * Runs *modify* for each analysis.
-      *
-      * @param egraph the specified [[Egraph]].
-      * @param id an [[EClass]]'s Id.
-      * 
-      * @note This function must be idempotent, i.e. modify(modify()) = 
-      * modify(). Usually adds an [[ENode]] to the given [[EClass]].
-      */
+         * Runs *modify* for each analysis.
+         *
+         * @param egraph the specified [[Egraph]].
+         * @param id an [[EClass]]'s Id.
+         * 
+         * @note This function must be idempotent, i.e. modify(modify()) = 
+         * modify(). Usually adds an [[ENode]] to the given [[EClass]].
+         */
     def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
         analysisList.foreach(analysis => analysis.modify(egraph, id))
+    }
+
+    /**
+         * Runs *deleteData* for each analysis.
+         *
+         * @param id an [[EClass]]'s Id.
+         * 
+         * @note This function is meant to be called strictly after merging.
+         */
+    def deleteData(id: EClass.Id): Unit = {
+        analysisList.foreach(analysis => analysis.deleteData(id))
     }
 }
