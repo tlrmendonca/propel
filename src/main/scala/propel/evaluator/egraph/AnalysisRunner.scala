@@ -42,6 +42,7 @@ class AnalysisRunner {
          *
          * @param data1 the data of the first EClass.
          * @param data2 the data of the second EClass, to be merged.
+         * @note This function deletes data2 after merging.
          */
     def merge(id1: EClass.Id, id2: EClass.Id): Unit = {
         analysisList.foreach(analysis =>
@@ -50,10 +51,8 @@ class AnalysisRunner {
 
             val data = analysis.merge(data1, data2)
             
-            // Note: setting data on both garantees the unioned class will 
-            // have the final data (while the other is not of interest anymore) 
             analysis.setData(id1, data) 
-            analysis.setData(id2, data) 
+            analysis.deleteData(id2)
         )
     }
 
@@ -68,16 +67,5 @@ class AnalysisRunner {
          */
     def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
         analysisList.foreach(analysis => analysis.modify(egraph, id))
-    }
-
-    /**
-         * Runs *deleteData* for each analysis.
-         *
-         * @param id an [[EClass]]'s Id.
-         * 
-         * @note This function is meant to be called strictly after merging.
-         */
-    def deleteData(id: EClass.Id): Unit = {
-        analysisList.foreach(analysis => analysis.deleteData(id))
     }
 }

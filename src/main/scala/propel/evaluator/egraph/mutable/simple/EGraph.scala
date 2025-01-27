@@ -75,18 +75,15 @@ object EGraph:
         val yc0 = self.find(yc)
         if xc0 == yc0 then return xc0
 
-        // Note: *analysisRunner.merge* needs to happen before *underlying.union* in order to stop it in case of contradiction
-        self.analysisRunner.merge(xc0.id, yc0.id)
-            
         val xyc = self.underlying.union(xc0, yc0)
         val xycUses = self.uses.getOrElseUpdate(xyc.id, MutableMap())
         val other = if xyc.id == xc0.id then yc0 else xc0
         val otherUses = self.uses.getOrElseUpdate(other.id, MutableMap())
         xycUses.addAll(otherUses)
         self.uses.remove(other.id)
-        self.analysisRunner.deleteData(other.id)
         
         self.worklist.add(xyc.id)
+        self.analysisRunner.merge(xyc.id, other.id)
         self.analysisRunner.modify(self, xyc.id)
         xyc
 
