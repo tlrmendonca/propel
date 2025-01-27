@@ -1,4 +1,4 @@
-package propel.evaluator.egraph.mutable.simple.AnalysisExamples
+package propel.evaluator.egraph.mutable.simple.analysisExamples
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind

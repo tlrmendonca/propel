@@ -1,4 +1,4 @@
-package propel.evaluator.egraph.mutable.simple.AnalysisExamples
+package propel.evaluator.egraph.mutable.simple.analysisExamples
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
@@ -61,9 +61,11 @@ object DisequalityAnalysis {
       def is_consistent(egraph: EGraph): Boolean =
         egraph.eclasses.forall(c =>
           val ccid = egraph.find(c._1).id
-          analysis.getData(c._1.id).forall(fid =>
-            val fc = egraph.getEClassFromId(fid)
-            egraph.find(fc).id != ccid
+          analysis.getData(c._1.id).match
+            case None => true
+            case Some(dataSet) => dataSet.forall(fid =>
+              val fc = egraph.getEClassFromId(fid)
+              egraph.find(fc).id != ccid
           )
         )
 
@@ -162,7 +164,7 @@ object DisequalityAnalysis {
     egraph.rebuild()
 
     // check consistency
-    println(s"Consistency check: ${disequality_analysis.is_consistent()}")
+    println(s"Consistency check: ${disequality_analysis.is_consistent(egraph)}")
     
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(disequality_analysis.eclass_data.toMap))
@@ -174,7 +176,7 @@ object DisequalityAnalysis {
     egraph.rebuild()
 
     // check consistency
-    println(s"Consistency check: ${disequality_analysis.is_consistent()}")
+    println(s"Consistency check: ${disequality_analysis.is_consistent(egraph)}")
 
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(disequality_analysis.eclass_data.toMap))
