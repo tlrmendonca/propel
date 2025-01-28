@@ -161,10 +161,60 @@ object AnalysisTester {
     // ^ verify that the merge warns for an inconsistency
   }
 
+  /**
+    * Goals: 
+    * 1. TBD
+    */
+  def testTypeFold(): Unit = {
+    import EGraph.EGraphOps
+
+    val type_fold_analysis = new TypeFoldAnalysis()
+
+    val egraph = EGraph()
+    egraph.addAnalysis(type_fold_analysis)
+
+    val numberedENodes @ Seq(onen, twon, tn, strn) = Seq(
+      ENode(Operator("1")),
+      ENode(Operator("2")),
+      ENode(Operator("true")),
+      ENode(Operator("str")),
+    )
+    val numberedEClasses @ Seq(one, two, t, str) =
+      numberedENodes.map(egraph.add)
+
+    println("INITIAL STATE:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
+
+    // +(1,4) -> Int
+    val sum1n = ENode(Operator("+"), Seq(one, two))
+    val sum1 = egraph.add(sum1n)
+
+    println("\nAFTER ADDING SUM1:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
+
+    val sum2n = ENode(Operator("+"), Seq(one, str))
+    val sum2 = egraph.add(sum2n)
+    // ^ type mismatch, verify warning is given
+
+    val addersENodes @ Seq(adder1n, adder2n) = Seq(
+      ENode(Operator("add1"), Seq(one)),
+      ENode(Operator("add1"), Seq(two))
+    )
+    val addersEClasses @ Seq(adder1, adder2) = addersENodes.map(egraph.add)
+
+    println("\nAFTER ADDING ADDERS:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
+    println("adder1 type: " + type_fold_analysis.eclass_data(adder1.id))
+    println("equivalent: " + AnalysisType(Seq(AnalysisType(BType.Number)), AnalysisType(BType.Number)))
+  }
+  
   // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester"
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
-    testConstantFold()
+    testTypeFold()
     println("AnalysisTester completed.")
   }
 }
