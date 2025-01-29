@@ -210,11 +210,109 @@ object AnalysisTester {
     println("adder1 type: " + type_fold_analysis.eclass_data(adder1.id))
     println("equivalent: " + AnalysisType(Seq(AnalysisType(BType.Number)), AnalysisType(BType.Number)))
   }
+
+  /**
+    * Goals: 
+    * 1. TBD
+    */
+  def testAdvConstantFoldSimplified(): Unit = {
+    import EGraph.EGraphOps
+
+    val adv_constant_fold_analysis = new AdvConstantFoldAnalysis()
+    
+    val egraph = EGraph()
+    egraph.addAnalysis(adv_constant_fold_analysis)
+    
+    val numberedENodes @ Seq(onen, twon, threen, fourn) = Seq(
+      ENode(Operator("1")),
+      ENode(Operator("2")),
+      ENode(Operator("3")),
+      ENode(Operator("4")),
+    )
+    val numberedEClasses @ Seq(one, two, three, four) =
+      numberedENodes.map(egraph.add)
+      
+    println("BEFORE ADDING SUM:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
+    
+    // +(1,4)
+    val sum1n = ENode(Operator("+"), Seq(one, four))
+    val sum1 = egraph.add(sum1n)
+    
+    println("AFTER ADDING SUM1:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
+    
+    // +(2,3)
+    val sum2n = ENode(Operator("+"), Seq(two, three))
+    val sum2 = egraph.add(sum2n)
+    
+    println("AFTER ADDING SUM2:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
+    // ^ notice that the union is not needed to join +(2,3) to +(1,4)
+  }
+
+  /**
+    * Goals: 
+    * 1. TBD
+    */
+  def testAdvConstantFoldComplete(): Unit = {
+    import EGraph.EGraphOps
+
+    val adv_constant_fold_analysis = new AdvConstantFoldAnalysis()
+    
+    val egraph = EGraph()
+    egraph.addAnalysis(adv_constant_fold_analysis)
+
+    val numberedENodes @ Seq(onen, twon, threen, fourn) = Seq(
+      ENode(Operator("1")),
+      ENode(Operator("2")),
+      ENode(Operator("3")),
+      ENode(Operator("4")),
+    )
+    val numberedEClasses @ Seq(one, two, three, four) =
+      numberedENodes.map(egraph.add)
+      
+    println("BEFORE OPS:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
+
+    val sumn = ENode(Operator("+"), Seq(one, two))
+    val subn = ENode(Operator("sub"), Seq(three, two))
+    val muln = ENode(Operator("mul"), Seq(one, one))
+    val divn = ENode(Operator("div"), Seq(three, one))
+    val sqn = ENode(Operator("pow2"), Seq(two))
+    val opsEClasses @ Seq(sum, sub, mul, div, sq) = 
+      Seq(sumn, subn, muln, divn, sqn).map(egraph.add)
+    
+    println("AFTER OPS:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
+    // ^ notice that there are 4 classes in total, each representing a number from 1 to 4
+
+    egraph.union(sum, three)
+    // ^ verify that the union is successful and cx={1+2,3}
+    egraph.union(sub, one)
+    // ^ verify that the union is successful and cx={3-2,1}
+    egraph.union(mul, one)
+    // ^ verify that the union is successful and cx={1*1,1}
+    egraph.union(div, three)
+    // ^ verify that the union is successful and cx={3/1,3}
+    egraph.union(sq, four)
+    // ^ verify that the union is successful and cx={2^2,4}
+    egraph.rebuild()
+    println("END:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
+  }
+
   
   // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester"
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
-    testTypeFold()
+    testAdvConstantFoldComplete()
     println("AnalysisTester completed.")
   }
 }
