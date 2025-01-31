@@ -54,7 +54,6 @@ object EGraph:
         self.lookup(x) match
           case (_, Some(xc)) => xc
           case (x0, _) =>
-            // Note: *analysisRunner.make* needs to happen before *underlying.union* in order to stop it in case of contradiction
             self.analysisRunner.make(self, x0)
 
             val xc0 = self.find(EClass(x0))
