@@ -207,8 +207,6 @@ object AnalysisTester {
     println("\nAFTER ADDING ADDERS:")
     println(prettyPrintEClasses(egraph.eclasses))
     println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
-    println("adder1 type: " + type_fold_analysis.eclass_data(adder1.id))
-    println("equivalent: " + AnalysisType(Seq(AnalysisType(BType.Number)), AnalysisType(BType.Number)))
   }
 
   /**
@@ -308,11 +306,60 @@ object AnalysisTester {
     println(prettyPrintData(adv_constant_fold_analysis.eclass_data.toMap))
   }
 
+  /**
+    * Goals: 
+    * 1. Add disunions and pass the consistency test
+    * 2. Add merge that breaks consistency and assert failure in the consistency test
+    */
+  def testDisequalityAnalysis(): Unit = {
+    val disequality_analysis = new DisequalityAnalysis()
+
+    val egraph = EGraph()
+    egraph.addAnalysis(disequality_analysis)
+
+    // Goal 1
+    println("\n*Goal 1* - Assert correct data creation and consistency")
+    val constantENodes @ Seq(an, bn, cn) = Seq(
+      ENode(Operator("a")),
+      ENode(Operator("b")),
+      ENode(Operator("c")),
+    )
+    val constantEClasses @ Seq(a, b, c) =
+      constantENodes.map(egraph.add)
+
+    disequality_analysis.disunion(a.id, b.id)
+
+    egraph.union(b, c)
+    egraph.rebuild()
+
+    // check consistency
+    println(s"Consistency check: ${disequality_analysis.is_consistent(egraph)}")
+    
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(disequality_analysis.eclass_data.toMap))
+
+    // Goal 2
+    println("\n*Goal 2* - Assert inconsistency")
+
+    egraph.union(a, b) // illegal union
+    egraph.rebuild()
+
+    // check consistency
+    println(s"Consistency check: ${disequality_analysis.is_consistent(egraph)}")
+
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(disequality_analysis.eclass_data.toMap))
+    // ^ note that a and b are both equal and disequal to each other
+  }
+
   
   // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester"
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
-    testAdvConstantFoldComplete()
+    println("\n----Type Folding----")
+    testTypeFold()
+    println("\n----Constant Folding----")
+    testConstantFold()
     println("AnalysisTester completed.")
   }
 }
