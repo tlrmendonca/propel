@@ -19,6 +19,11 @@ class AdvConstantFoldAnalysis extends Analysis {
   type Data = String
   val eclass_data = MutableMap()
 
+  type GlobalData = Unit
+  var global_data = ()
+
+  var dependencies = List()
+
   /**
     * Goal: Calculate the constant value if dependent on children.
     *

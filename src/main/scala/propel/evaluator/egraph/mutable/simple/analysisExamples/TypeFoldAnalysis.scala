@@ -18,6 +18,12 @@ class TypeFoldAnalysis extends Analysis {
   type Data = AnalysisType
   val eclass_data = MutableMap()
 
+  type GlobalData = Unit
+  var global_data = ()
+
+  var dependencies = List()
+
+
   /**
     * Goal: Represent the type of a node.
     *

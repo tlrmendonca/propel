@@ -19,6 +19,11 @@ class ConstantFoldAnalysis extends Analysis {
   type Data = String
   val eclass_data = MutableMap()
 
+  type GlobalData = Unit
+  var global_data = ()
+
+  var dependencies = List()
+
   /**
     * Goal: Calculate the constant value if dependent on children.
     * @note Let us assume a node can only have one children.

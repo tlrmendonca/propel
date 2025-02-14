@@ -7,14 +7,14 @@ import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 
 /**
-      * [[Counting Nodes in Classes]]
-      * Level: Easy
-      * Goal: Keep track of what nodes exist in each class
-      * 
-      * [[Tracking Nodes in Classes]]
-      * Level: Easy
-      * Goal: Keep track of what nodes exist in each class and how many nodes are in each class
-      */
+ * [[Counting Nodes in Classes]]
+ * Level: Easy
+ * Goal: Keep track of what nodes exist in each class
+ * 
+ * [[Tracking Nodes in Classes]]
+ * Level: Easy
+ * Goal: Keep track of what nodes exist in each class and how many nodes are in each class
+ */
 class CountingNodesAnalysis extends Analysis {
 
   /**
@@ -22,6 +22,11 @@ class CountingNodesAnalysis extends Analysis {
     */
   type Data = (Int, Seq[ENode])
   val eclass_data = MutableMap()
+
+  type GlobalData = Unit
+  var global_data = ()
+
+  var dependencies = List()
 
   /**
     * Goal: Set data (number of nodes in class) to 1.

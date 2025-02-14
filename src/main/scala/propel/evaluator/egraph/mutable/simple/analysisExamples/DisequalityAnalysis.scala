@@ -22,59 +22,15 @@ class DisequalityAnalysis extends Analysis {
   }
 
   /**
-    * [[Extension]], using the type of the analysis, featuring [[user-callable]] functions to access the analysis.
-    */
-  // object DisequalityAnalysisExtensions {
-  //   // Uncomment in case EGraph is used inside extension
-  //   import EGraph._
-    
-  //   extension (analysis: DisequalityAnalysisT) {
-  //     /**
-  //       * Goal: Add a disunion between two classes.
-  //       * 
-  //       * @param id1 first class id
-  //       * @param id2 second class id
-  //       */
-  //     def disunion(id1: EClass.Id, id2: EClass.Id): Unit =
-  //       // add id2 to first class
-  //       val data1 = analysis.eclass_data.getOrElse(id1, Set.empty[EClass.Id])
-  //       val newData1 = data1 + id2
-  //       analysis.eclass_data.update(id1, newData1)
-
-  //       // add id1 to second class
-  //       val data2 = analysis.eclass_data.getOrElse(id2, Set.empty[EClass.Id])
-  //       val newData2 = data2 + id1
-  //       analysis.eclass_data.update(id2, newData2)
-      
-  //     /**
-  //      * Goal: Check if the analysis is consistent, i.e, no class forbids itself.
-  //      */
-  //     def is_consistent(egraph: EGraph): Boolean =
-  //       egraph.eclasses.forall(c =>
-  //         val ccid = egraph.find(c._1).id
-  //         analysis.getData(c._1.id).match
-  //           case None => true
-  //           case Some(dataSet) => dataSet.forall(fid =>
-  //             val fc = egraph.getEClassFromId(fid)
-  //             egraph.find(fc).id != ccid
-  //         )
-  //       )
-
-  //       // possibly more efficient version
-  //       // analysis.eclass_data.forall((cid, data) =>
-  //       //   data.forall(id =>
-  //       //     val fc = egraph.getEClassFromId(id)
-  //       //     egraph.find(fc).id != cid
-  //       //   )
-  //       // )
-  //   }
-  // }
-
-  /**
     * [[Data]] set as [[Seq<EClass.Id>]] to refer to other classes.
     */
   type Data = Set[EClass.Id]
   val eclass_data = MutableMap()
+
+  type GlobalData = Unit
+  var global_data = ()
+
+  var dependencies = List()
 
   /**
     * Goal: Set sequence to empty.
