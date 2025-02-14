@@ -16,6 +16,8 @@ class AnalysisRunner {
     private val analysisList: ArrayBuffer[Analysis] = ArrayBuffer.empty;
 
     def add(analysis: Analysis): Unit = {
+        // this call must be recursive
+        analysis.dependencies.foreach(dep => add(dep));
         analysisList += analysis;
     }
 
