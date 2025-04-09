@@ -18,8 +18,11 @@ class TypeFoldAnalysis extends Analysis {
   type Data = AnalysisType
   val eclass_data = MutableMap()
 
-  type GlobalData = Unit
-  var global_data = ()
+	/**
+	 * [[GlobalData]] set as [[Boolean]] to represent the presence of an error/inconsistency.
+	 */
+  type GlobalData = Boolean
+  var global_data = false
 
   var dependencies = List()
 
@@ -37,7 +40,10 @@ class TypeFoldAnalysis extends Analysis {
     f match {
       case null => AnalysisType(toType(x.op)) // TODO: distinguish a value from a non-defined function symbol ?
       case f: (Function1[Seq[AnalysisType], AnalysisType], Int) =>
-        if (args.length != f._2) println("WARNING: Invalid number of arguments, expected " + f._2 + ", but " + args.length + " given")
+        if (args.length != f._2) {
+          global_data = true
+          println("WARNING: Invalid number of arguments, expected " + f._2 + ", but " + args.length + " given")
+        }
         f._1(args)
     }
   }
@@ -68,8 +74,10 @@ class TypeFoldAnalysis extends Analysis {
   def merge(data1: Data, data2: Data): Data = {
     if (data1 == data2) 
       println(s"Merge: $data1 and $data2 are the same type")
-    else 
+    else {
+      global_data = true
       println(s"WARNING: Inconsistent types! Cannot merge (${data1.toString()}) and (${data2.toString()})") 
+    }
     data1
   }
 
@@ -88,12 +96,18 @@ class TypeFoldAnalysis extends Analysis {
   val functions = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)] (
     Operator("+") -> (args => {
       if !(args(0).basicType == BType.Number && args(1).basicType == BType.Number)
-      then println(s"WARNING: Invalid types for +, given (${args(0)}) and (${args(1)})")
+      then {
+        global_data = true
+        println(s"WARNING: Invalid types for +, given (${args(0)}) and (${args(1)})")
+      }
       AnalysisType(BType.Number)
       },2),
     Operator("add1") -> (args => {
       if !(args(0).basicType == BType.Number)
-      then println(s"Invalid types for add1, given (${args(0)})")
+      then {
+        global_data = true
+        println(s"WARNING: Invalid types for add1, given (${args(0)})")
+      }
       AnalysisType(Seq(AnalysisType(BType.Number)), AnalysisType(BType.Number))
     },1)
   )

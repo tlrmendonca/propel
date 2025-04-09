@@ -32,7 +32,7 @@ trait Analysis:
     * @note An [[Analysis]] is never responsible for handling data or calling functions of the its dependencies, nor
     * vice-versa. Dependencies exist to provide access to other [[Analysis]]'s data.
     */
-  var dependencies: List[Analysis];
+  val dependencies: List[Analysis];
   
   def getData(id: EClass.Id): Option[Data] = eclass_data.get(id)
 
@@ -74,32 +74,3 @@ trait Analysis:
     * modify(). Usually adds an [[ENode]] to the given [[EClass]].
     */
   def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit;
-
-// object AnalysisUtils:
-
-//   /**
-//     * A static method to connect two [[Analysis]]s.
-//     * 
-//     * @param i_analysis the independent [[Analysis]].
-//     * @param builder a function that takes the independent [[Analysis]] and returns an analysis dependent on it.
-//     */
-//   def dependsOn(i_analysis: Analysis, builder: Analysis => Analysis): Analysis = 
-//     val d_analysis = builder(i_analysis)
-
-//     new Analysis {
-//       def make[G](egraph: G, enode: ENode)(using EGraphOps[G]): Unit = 
-//         val i_data = i_analysis.make(egraph, enode)
-//         i_analysis.setData(egraph.find(EClass(enode)).id, i_data)
-//         val d_data = d_analysis.make(egraph, enode)
-//         d_analysis.setData(egraph.find(EClass(enode)).id, d_data)
-
-//       def merge(data1: Data, data2: Data): Data = {}
-//         // i_analysis.merge(data1, data2)
-//         // d_analysis.merge(data1, data2)
-
-//       def modify[G](egraph: G, id: Id)(using EGraphOps[G]): Unit = 
-//         i_analysis.modify(egraph, id)
-//         d_analysis.modify(egraph, id)
-//     }
-
-      

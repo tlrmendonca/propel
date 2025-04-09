@@ -352,14 +352,32 @@ object AnalysisTester {
     // ^ note that a and b are both equal and disequal to each other
   }
 
+  def testConstantFoldWithTypingAnalysis(): Unit = {
+    val constant_fold_with_typing_analysis = new ConstantFoldWithTypingAnalysis(new TypeFoldAnalysis())
+
+    val egraph = EGraph()
+    egraph.addAnalysis(constant_fold_with_typing_analysis)
+
+    println(s"Added Analysis's dependencies? ${egraph.getAnalysisList().map(_.getClass.getSimpleName)}\n")
+    // ^ verify that the dependencies are added
+
+    // Create test enodes
+    val constantENodes @ Seq(strn, booln) = Seq(
+      ENode(Operator("string")),
+      ENode(Operator("true")),
+    )
+    val constantEClasses @ Seq(str, bool) =
+      constantENodes.map(egraph.add)
+
+    egraph.union(str, bool)
+    // ^ should warn about a type mismatch by detecting global_data flag
+  }
+
   
   // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester"
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
-    println("\n----Type Folding----")
-    testTypeFold()
-    println("\n----Constant Folding----")
-    testConstantFold()
+    testConstantFoldWithTypingAnalysis()
     println("AnalysisTester completed.")
   }
 }

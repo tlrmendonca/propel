@@ -18,7 +18,8 @@ class AnalysisRunner {
     def add(analysis: Analysis): Unit = {
         // this call must be recursive
         analysis.dependencies.foreach(dep => add(dep));
-        analysisList += analysis;
+        if !analysisList.contains(analysis) then
+            analysisList += analysis;
     }
 
     def getAnalysisList(): Seq[Analysis] = {

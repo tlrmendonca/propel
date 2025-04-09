@@ -49,6 +49,9 @@ object EGraph:
 
       override def addAnalysis(analysis: Analysis): Unit =
         self.analysisRunner.add(analysis)
+        
+      override def getAnalysisList(): Seq[Analysis] = 
+        self.analysisRunner.getAnalysisList()
 
       override def add(x: ENode): EClass =
         self.lookup(x) match

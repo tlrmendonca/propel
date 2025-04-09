@@ -9,6 +9,8 @@ trait EGraphOps[EGraph]: // Jahrim Assistance
     def eclasses: Map[EClass, Set[ENode]]
     /** Add the specified [[Analysis]] to this e-graph. */
     def addAnalysis(a: Analysis): Unit
+    /** @return the list of [[Analysis]]s in this e-graph. */
+    def getAnalysisList(): Seq[Analysis]
     /**
      * Add the specified [[ENode]] to this e-graph.
      * @param x the specified [[ENode]].
