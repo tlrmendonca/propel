@@ -12,15 +12,6 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as Muta
   * Goal: Keep track of disequality relations.
   */
 class DisequalityAnalysis extends Analysis {
-  // Tag to restrict usability
-  trait DisequalityTag
-
-  // Type alias for simplification below
-  type DisequalityAnalysisT = Analysis & DisequalityTag {
-    type Data = Set[EClass.Id]
-    val eclass_data: MutableMap[EClass.Id, Set[EClass.Id]]
-  }
-
   /**
     * [[Data]] set as [[Seq<EClass.Id>]] to refer to other classes.
     */
