@@ -21,7 +21,7 @@ class DisequalityAnalysis extends Analysis {
   type GlobalData = Unit
   var global_data = ()
 
-  var dependencies = List()
+  val dependencies = List()
 
   /**
     * Goal: Set sequence to empty.

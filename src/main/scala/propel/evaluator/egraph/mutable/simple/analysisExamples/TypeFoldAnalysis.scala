@@ -24,7 +24,7 @@ class TypeFoldAnalysis extends Analysis {
   type GlobalData = Boolean
   var global_data = false
 
-  var dependencies = List()
+  val dependencies = List()
 
 
   /**

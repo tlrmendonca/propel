@@ -26,7 +26,7 @@ class CountingNodesAnalysis extends Analysis {
   type GlobalData = Unit
   var global_data = ()
 
-  var dependencies = List()
+  val dependencies = List()
 
   /**
     * Goal: Set data (number of nodes in class) to 1.

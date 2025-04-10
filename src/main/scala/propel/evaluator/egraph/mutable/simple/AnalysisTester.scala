@@ -373,11 +373,67 @@ object AnalysisTester {
     // ^ should warn about a type mismatch by detecting global_data flag
   }
 
-  
+  def testCVecAnalysis(): Unit = {
+    val cvec_analysis = new CVecAnalysis()
+
+    val egraph = EGraph()
+    egraph.addAnalysis(cvec_analysis)
+
+    // // Create a couple variables and a few constant integers
+    // val constantENodes @ Seq(xn, yn, onen, twon, threen) = Seq(
+    //   ENode(Operator("x")),
+    //   ENode(Operator("y")),
+    //   ENode(Operator("1")),
+    //   ENode(Operator("2")),
+    //   ENode(Operator("3")),
+    // )
+    // val constantEClasses @ Seq(x, y, one, two, three) =
+    //   constantENodes.map(egraph.add)
+
+    // println("Initial state with just loose nodes:")
+    // println(prettyPrintEClasses(egraph.eclasses))
+    // println(prettyPrintData(cvec_analysis.eclass_data.toMap))
+
+    // // Create a few operations to represent combinations of vars and consts
+    // val opENodes @ Seq(op1n, op2n, op3n, op4n, op5n) = Seq(
+    //   ENode(Operator("+"), Seq(one, two)),
+    //   ENode(Operator("+"), Seq(one, x)),
+    //   ENode(Operator("+"), Seq(x, y)),
+    //   ENode(Operator("*"), Seq(x, y)),
+    //   ENode(Operator("pow2"), Seq(x)),
+    // )
+    // val opEClasses @ Seq(op1, op2, op3, op4, op5) =
+    //   opENodes.map(egraph.add)
+
+    // println("After adding operations:")
+    // println(prettyPrintEClasses(egraph.eclasses))
+    // println(prettyPrintData(cvec_analysis.eclass_data.toMap))
+    // // ^ verify that the operations are added correctly
+    // // ^ verify that the cvec is updated correctly
+
+    val eNodes @ Seq(varn, var2n) = Seq(
+      ENode(Operator("x")),
+      ENode(Operator("y")),
+    )
+    val eClasses @ Seq(varx, vary) =
+      eNodes.map(egraph.add)
+
+    val opENodes @ Seq(op1n) = Seq(
+      ENode(Operator("+"), Seq(varx, vary)),
+    )
+    val opEClasses @ Seq(op1) =
+      opENodes.map(egraph.add)
+
+    println("Adding operations:")
+    println(prettyPrintEClasses(egraph.eclasses))
+    println(prettyPrintData(cvec_analysis.eclass_data.toMap))
+      
+  }
+
   // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester"
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
-    testConstantFoldWithTypingAnalysis()
+    testCVecAnalysis()
     println("AnalysisTester completed.")
   }
 }

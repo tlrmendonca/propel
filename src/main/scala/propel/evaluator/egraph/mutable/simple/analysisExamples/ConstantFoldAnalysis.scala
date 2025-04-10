@@ -22,7 +22,7 @@ class ConstantFoldAnalysis extends Analysis {
   type GlobalData = Unit
   var global_data = ()
 
-  var dependencies = List()
+  val dependencies = List()
 
   /**
     * Goal: Calculate the constant value if dependent on children.
