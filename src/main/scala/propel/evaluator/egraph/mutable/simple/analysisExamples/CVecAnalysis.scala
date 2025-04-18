@@ -51,7 +51,7 @@ class CVecAnalysis extends Analysis {
     
     if(is_var(x)) {
       // add variable x.op to the list of known variables
-      vars.update(x.op.toString, generate_cvec())
+      vars.update(x.op.toString, generate_cvec()) // TODO: not needed
       eclass_data.update(xc.id, vars(x.op.toString))
       return vars(x.op.toString)
     }
@@ -69,27 +69,14 @@ class CVecAnalysis extends Analysis {
     }
 
     // onwards to finding calculating the cvec depending on the children
-    val children = x.refs
-    // check children have valid data
-    for (i <- 0 until children.length) {
-      val child_data = eclass_data.getOrElse(children(i).id, null)
-      // FIXME: if null, create it? how?
-      if (child_data == null) {
-        print("Warning: Child " + children(i).id + " has no data")
-        // eclass_data.update(children(i).id, this.make(egraph, children(i).enode))
-      }
-    }
-
     // build cvec one position at a time by applying function to the possible values of each side
+    val children = x.refs
     var cvec = Seq.empty[Int]
-    println("creating cvec for " + xc.id)
-    println("children cvecs: " + children.map(c => eclass_data.getOrElse(c.id, Seq())))
     for (i <- 0 until CVEC_SIZE) {
       val args : Seq[Int] = children.map(c => eclass_data.getOrElse(c.id, Seq()).apply(i))
       val v = f._1(args)
       cvec = cvec :+ v
     }
-    println("final cvec: " + cvec)
     eclass_data.update(xc.id, cvec)
     return cvec
   }

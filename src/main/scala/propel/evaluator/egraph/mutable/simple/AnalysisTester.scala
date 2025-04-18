@@ -8,14 +8,21 @@ object AnalysisTester {
   def prettyPrintEClasses(eclasses: Map[EClass, Set[ENode]]): String = {
     eclasses.toSeq.sortBy(_._1.toString).map { case (eclass, enodes) =>
       s"$eclass -> ${enodes.mkString(",")}"
-    }.mkString("; ")
+    }.mkString("\n")
   }
   
   def prettyPrintData[D](data: Map[EClass.Id, D]): String = {
     data.toSeq.sortBy(_._1.toString).map { case (id, data) =>
       val str = id.toString.stripPrefix("Symbol(").stripSuffix(")")
       s"$str -> $data"
-    }.mkString("; ")
+    }.mkString("\n")
+  }
+
+  def printEGraphState(eclasses: Map[EClass, Set[ENode]], analysis: Analysis, message: String): Unit = {
+    println(message)
+    println(prettyPrintEClasses(eclasses))
+    print("\n")
+    println(prettyPrintData(analysis.eclass_data.toMap))
   }
 
   /**
@@ -373,64 +380,96 @@ object AnalysisTester {
     // ^ should warn about a type mismatch by detecting global_data flag
   }
 
+  /**
+    * Goals:
+    * 1. Single operation with two variables
+    * 2. Nested operations
+    * 3. Trying to find common CVecs with more complex functions
+    */
   def testCVecAnalysis(): Unit = {
+    println("Select an example to run: 1-3")
+    
+    val selection = scala.io.StdIn.readLine("Enter your choice (1-3): ").trim
+    
     val cvec_analysis = new CVecAnalysis()
-
     val egraph = EGraph()
     egraph.addAnalysis(cvec_analysis)
+    
+    selection match {
+      case "1" => 
+        val eNodes @ Seq(varn, var2n) = Seq(
+          ENode(Operator("x")),
+          ENode(Operator("y")),
+        )
+        val eClasses @ Seq(varx, vary) =
+          eNodes.map(egraph.add)
+        
+        printEGraphState(egraph.eclasses, cvec_analysis, "Initial state with just variables:")
+        
+        val opENodes @ Seq(op1n) = Seq(
+          ENode(Operator("+"), Seq(varx, vary)),
+        )
+        val opEClasses @ Seq(op1) =
+          opENodes.map(egraph.add)
+        
+        printEGraphState(egraph.eclasses, cvec_analysis, "After adding operations:")
+        // ^ final cved is created correctly by adding each element of the x and y cvecs
+        
+      case "2" =>
+        val constantENodes @ Seq(xn, yn, twon) = Seq(
+          ENode(Operator("x")),
+          ENode(Operator("y")),
+          ENode(Operator("2")),
+        )
+        val constantEClasses @ Seq(x, y, two) =
+          constantENodes.map(egraph.add)
+          
+        val op1n = ENode(Operator("+"), Seq(x, y))
+        val op1 = egraph.add(op1n)
+        val op2n = ENode(Operator("*"), Seq(op1, two))
+        val op2 = egraph.add(op2n)
 
-    // // Create a couple variables and a few constant integers
-    // val constantENodes @ Seq(xn, yn, onen, twon, threen) = Seq(
-    //   ENode(Operator("x")),
-    //   ENode(Operator("y")),
-    //   ENode(Operator("1")),
-    //   ENode(Operator("2")),
-    //   ENode(Operator("3")),
-    // )
-    // val constantEClasses @ Seq(x, y, one, two, three) =
-    //   constantENodes.map(egraph.add)
+        printEGraphState(egraph.eclasses, cvec_analysis, "After adding operations:")
+        // ^ final cved is created correctly by adding each element of the x and y cvecs and then squaring each one
+        
+      case "3" | _ =>
+        // "Unintuitive" expression equivalencies
+        // (x + y)² = x² + 2xy + y²
+        val constantENodes @ Seq(xn, yn, twon) = Seq(
+          ENode(Operator("x")),
+          ENode(Operator("y")),
+          ENode(Operator("2")),
+        )
+        val constantEClasses @ Seq(x, y, two) =
+          constantENodes.map(egraph.add)
+        
+        // (x + y)²
+        val op1n = ENode(Operator("+"), Seq(x, y))
+        val op1 = egraph.add(op1n)
+        val op2n = ENode(Operator("pow2"), Seq(op1))
+        val op2 = egraph.add(op2n)
 
-    // println("Initial state with just loose nodes:")
-    // println(prettyPrintEClasses(egraph.eclasses))
-    // println(prettyPrintData(cvec_analysis.eclass_data.toMap))
+        // x² + 2xy + y²
+        val opsENodes @ Seq(powxn, powyn, xyn) = Seq(
+          ENode(Operator("pow2"), Seq(x)),
+          ENode(Operator("pow2"), Seq(y)),
+          ENode(Operator("*"), Seq(x, y)),
+        )
+        val opsEClasses @ Seq(powx, powy, xy) =
+          opsENodes.map(egraph.add)
+        val op3n = ENode(Operator("*"), Seq(xy, two))
+        val op3 = egraph.add(op3n)
+        val op4n = ENode(Operator("+"), Seq(powx, op3))
+        val op4 = egraph.add(op4n)
+        val op5n = ENode(Operator("+"), Seq(op4, powy))
+        val op5 = egraph.add(op5n)
 
-    // // Create a few operations to represent combinations of vars and consts
-    // val opENodes @ Seq(op1n, op2n, op3n, op4n, op5n) = Seq(
-    //   ENode(Operator("+"), Seq(one, two)),
-    //   ENode(Operator("+"), Seq(one, x)),
-    //   ENode(Operator("+"), Seq(x, y)),
-    //   ENode(Operator("*"), Seq(x, y)),
-    //   ENode(Operator("pow2"), Seq(x)),
-    // )
-    // val opEClasses @ Seq(op1, op2, op3, op4, op5) =
-    //   opENodes.map(egraph.add)
-
-    // println("After adding operations:")
-    // println(prettyPrintEClasses(egraph.eclasses))
-    // println(prettyPrintData(cvec_analysis.eclass_data.toMap))
-    // // ^ verify that the operations are added correctly
-    // // ^ verify that the cvec is updated correctly
-
-    val eNodes @ Seq(varn, var2n) = Seq(
-      ENode(Operator("x")),
-      ENode(Operator("y")),
-    )
-    val eClasses @ Seq(varx, vary) =
-      eNodes.map(egraph.add)
-
-    val opENodes @ Seq(op1n) = Seq(
-      ENode(Operator("+"), Seq(varx, vary)),
-    )
-    val opEClasses @ Seq(op1) =
-      opENodes.map(egraph.add)
-
-    println("Adding operations:")
-    println(prettyPrintEClasses(egraph.eclasses))
-    println(prettyPrintData(cvec_analysis.eclass_data.toMap))
-      
+        printEGraphState(egraph.eclasses, cvec_analysis, "After adding second level operations:")
+        // ^ search for cvecs of the classes pow2(+(x,y)) and +(+(pow2(x),*(*(x,y),2)),pow2(y))
+    }
   }
 
-  // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester"
+  // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester" 
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
     testCVecAnalysis()
