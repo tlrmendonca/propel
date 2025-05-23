@@ -387,11 +387,16 @@ object AnalysisTester {
     * 3. Trying to find common CVecs with more complex functions
     */
   def testCVecAnalysis(): Unit = {
-    println("Select an example to run: 1-3")
+    println("Select an example to run:" +
+      "\n1. Single operation with two variables" +
+      "\n2. Nested operations" +
+      "\n3. Trying to find common CVecs with more complex functions" +
+      "\n4. Lists and Strings")
+
     
-    val selection = scala.io.StdIn.readLine("Enter your choice (1-3): ").trim
+    val selection = scala.io.StdIn.readLine("Enter your choice (1-4): ").trim
     
-    val cvec_analysis = new CVecAnalysis()
+    val cvec_analysis = new CVecAnalysis(new TypeFoldAnalysis())
     val egraph = EGraph()
     egraph.addAnalysis(cvec_analysis)
     
@@ -426,13 +431,13 @@ object AnalysisTester {
           
         val op1n = ENode(Operator("+"), Seq(x, y))
         val op1 = egraph.add(op1n)
-        val op2n = ENode(Operator("*"), Seq(op1, two))
+        val op2n = ENode(Operator("+"), Seq(op1, two))
         val op2 = egraph.add(op2n)
 
         printEGraphState(egraph.eclasses, cvec_analysis, "After adding operations:")
         // ^ final cved is created correctly by adding each element of the x and y cvecs and then squaring each one
         
-      case "3" | _ =>
+      case "3" =>
         // "Unintuitive" expression equivalencies
         // (x + y)² = x² + 2xy + y²
         val constantENodes @ Seq(xn, yn, twon) = Seq(
@@ -466,6 +471,34 @@ object AnalysisTester {
 
         printEGraphState(egraph.eclasses, cvec_analysis, "After adding second level operations:")
         // ^ search for cvecs of the classes pow2(+(x,y)) and +(+(pow2(x),*(*(x,y),2)),pow2(y))
+
+      case "4" | _ =>
+        val constantENodes @ Seq(sn, vn, ln) = Seq(
+          ENode(Operator("s")),
+          ENode(Operator("v")),
+          ENode(Operator("l")),
+        )
+        val constantEClasses @ Seq(s, v, l) =
+          constantENodes.map(egraph.add)
+        // ^ verify that the cvecs are created according to type
+
+        printEGraphState(egraph.eclasses, cvec_analysis, "Basic nodes added:")
+
+        val op1n = ENode(Operator("concat"), Seq(s, v))
+        val op1 = egraph.add(op1n)
+        // ^ verify concatenation of strings in cvecs works fine
+
+        printEGraphState(egraph.eclasses, cvec_analysis, "Concat s and v:")
+
+        egraph.union(s, v)
+
+        printEGraphState(egraph.eclasses, cvec_analysis, "After unioning before rebuild s and v:")
+
+        egraph.rebuild()
+        // ^ verify that the cvecs unify
+        // ^ verify that the cvec for op1 is updated
+
+        printEGraphState(egraph.eclasses, cvec_analysis, "After unioning s and v:")
     }
   }
 

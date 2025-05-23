@@ -26,7 +26,6 @@ class TypeFoldAnalysis extends Analysis {
 
   val dependencies = List()
 
-
   /**
     * Goal: Represent the type of a node.
     *
@@ -36,7 +35,10 @@ class TypeFoldAnalysis extends Analysis {
     */
   def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
     val f = operations.getOrElse(x.op, null)
-    val args = x.refs.map(ref => getData(ref.id).get)
+    val args = x.refs.map(ref => {
+      val cRef = egraph.find(ref)
+      getData(cRef.id).get
+    })
     f match {
       case null => AnalysisType(toType(x.op)) // TODO: distinguish a value from a non-defined function symbol ?
       case f: (Function1[Seq[AnalysisType], AnalysisType], Int) =>
@@ -60,6 +62,7 @@ class TypeFoldAnalysis extends Analysis {
     op.toString match {
       case "true" | "false" => BType.Boolean
       case s if s.matches("""-?\d+(\.\d+)?""") => BType.Number
+      case s if s.matches("""\(\d+(,\d+)*\)""") => BType.List // lists looking like (1,2,3) or (42) // HERE
       case _ => BType.String
     }
   }
@@ -72,9 +75,7 @@ class TypeFoldAnalysis extends Analysis {
     * @return
     */
   def merge(data1: Data, data2: Data): Data = {
-    if (data1 == data2) 
-      println(s"Merge: $data1 and $data2 are the same type")
-    else {
+    if !(data1 == data2) then {
       global_data = true
       println(s"WARNING: Inconsistent types! Cannot merge (${data1.toString()}) and (${data2.toString()})") 
     }
@@ -90,27 +91,41 @@ class TypeFoldAnalysis extends Analysis {
   def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
     return
   }
+
+  def printWarning(msg: String): Unit = {
+    global_data = true
+    println(s"WARNING: $msg")
+  }
   
   // TODO: there operators are very complicated and could use a refactor
   // Something that would put emphasis on the logic part and leave the warnings handling in another place
   val functions = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)] (
     Operator("+") -> (args => {
-      if !(args(0).basicType == BType.Number && args(1).basicType == BType.Number)
-      then {
-        global_data = true
-        println(s"WARNING: Invalid types for +, given (${args(0)}) and (${args(1)})")
-      }
+      if !(args(0).basicType == args(1).basicType && (args(0).basicType == BType.Number || args(0).basicType == BType.String)) then printWarning(s"Invalid types for +, given (${args(0)}) and (${args(1)})")
+      AnalysisType(args(0).basicType)
+      },2),
+    Operator("*") -> (args => {
+      if !(args(0).basicType == BType.Number && args(1).basicType == BType.Number) then printWarning(s"Invalid types for *, given (${args(0)}) and (${args(1)})")
       AnalysisType(BType.Number)
       },2),
     Operator("add1") -> (args => {
-      if !(args(0).basicType == BType.Number)
-      then {
-        global_data = true
-        println(s"WARNING: Invalid types for add1, given (${args(0)})")
-      }
+      if !(args(0).basicType == BType.Number) then printWarning(s"Invalid types for add1, given (${args(0)})")
       AnalysisType(Seq(AnalysisType(BType.Number)), AnalysisType(BType.Number))
-    },1)
+    },1),
+    Operator("pow2") -> (args => {
+      if !(args(0).basicType == BType.Number) then printWarning(s"Invalid types for pow2, given (${args(0)})")
+      AnalysisType(BType.Number)
+    },1),
+  )
+
+  val var_types = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)] (
+    Operator("x") -> (args => AnalysisType(BType.Number),0),
+    Operator("y") -> (args => AnalysisType(BType.Number),0),
+    Operator("s") -> (args => AnalysisType(BType.String),0),
+    Operator("v") -> (args => AnalysisType(BType.String),0),
+    Operator("l") -> (args => AnalysisType(BType.List),0),
   )
       
   operations ++= functions
+  operations ++= var_types
 }

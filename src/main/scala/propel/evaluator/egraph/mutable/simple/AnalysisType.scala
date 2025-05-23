@@ -2,18 +2,19 @@ package propel.evaluator.egraph.mutable.simple
 
 /** Possible [[Type]]s of [[ENode]]s. */
 enum BType:
-  case Number, String, Boolean, Function, Unknown
+  case Number, String, Boolean, List, Function, Unknown
   override def toString(): String = this match
     case Number => "Num"
     case String => "Str"
     case Boolean => "Bool"
+    case List => "List" // HERE
     case _ => "?"
 
 /** Representation of [[Type]] */
 trait AnalysisType:
   
   def basicType: BType
-  
+
 /** Companion object of [[Type]]. */
 object AnalysisType:
 
