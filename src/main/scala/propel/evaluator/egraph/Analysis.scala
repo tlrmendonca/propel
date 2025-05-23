@@ -33,6 +33,8 @@ trait Analysis:
     * vice-versa. Dependencies exist to provide access to other [[Analysis]]'s data.
     */
   val dependencies: List[Analysis];
+
+  def getAllData: Map[EClass.Id, Data] = eclass_data.toMap
   
   def getData(id: EClass.Id): Option[Data] = eclass_data.get(id)
 
