@@ -3,7 +3,7 @@ package propel.evaluator.egraph
 import propel.evaluator.egraph.{EClass, ENode, Language}
 import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 
-import collection.mutable.{ArrayBuffer, Seq as MutableSeq}
+import collection.mutable.{ArrayBuffer, Seq as MutableSeq, Map as MutableMap, Set as MutableSet}
 
 /** 
  * A tool to allow the use of many analysis' simultaneously.
@@ -70,5 +70,30 @@ class AnalysisRunner {
          */
     def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
         analysisList.foreach(analysis => analysis.modify(egraph, id))
+    }
+
+    /**
+      * Runs repair for each analysis.
+      * 
+      * @param egraph the specified [[Egraph]].
+      * @param uses the uses of the [[ENode]].
+      * @param worklist the worklist of the [[EGraph]], i.e. nodes to run repair in the future.
+      */
+    def repair[G](egraph: G, uses: MutableMap[ENode, EClass], worklist: MutableSet[EClass.Id])(using EGraphOps[G]): Unit = {
+      uses.foreach((x, xcStale) =>
+        val x0 = egraph.canonicalize(x)
+        (x0, egraph.enodes.get(x0).map(id => egraph.getEClassFromId(id))) match
+          case (_, Some(xcStale0)) =>
+            analysisList.foreach(analysis =>
+              val data = analysis.getData(xcStale0.id).get //FIXME: Unsafe
+              val data2 = analysis.make(egraph, x)
+              val newData = analysis.merge(data, data2)
+
+              if newData != data then
+                analysis.setData(xcStale0.id, newData)
+                worklist.add(xcStale0.id) // This is only fine inside the forEach because it is a **Set**
+            )
+          case _ => throw new java.lang.Exception("Something went wrong in analysis rebuilding")
+        )
     }
 }

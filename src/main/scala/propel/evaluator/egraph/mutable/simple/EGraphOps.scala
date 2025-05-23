@@ -7,6 +7,8 @@ trait EGraphOps[EGraph]: // Jahrim Assistance
   extension (self: EGraph) {
     /** @return a map from [[EClass]]es to the sets of their [[ENode]]es. */
     def eclasses: Map[EClass, Set[ENode]]
+    /** @return a map from [[ENode]]es to their [[EClass]]es. */
+    def enodes: Map[ENode, EClass.Id]
     /** Add the specified [[Analysis]] to this e-graph. */
     def addAnalysis(a: Analysis): Unit
     /** @return the list of [[Analysis]]s in this e-graph. */

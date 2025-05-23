@@ -47,6 +47,9 @@ object EGraph:
       override def eclasses: Map[EClass, Set[ENode]] =
         self.enodes.groupBy((x, xcId) => self.find(self.classes(xcId))).map(_ -> _.toMap.keySet)
 
+      override def enodes: Map[ENode, EClass.Id] =
+        self.enodes.toMap
+
       override def addAnalysis(analysis: Analysis): Unit =
         self.analysisRunner.add(analysis)
         
@@ -114,21 +117,8 @@ object EGraph:
 
           self.analysisRunner.modify(self, xc.id) // This may break invariants
           
-          // TODO: Turn this off in the future to test with a know to be correct analysis
-          xcUses.foreach((x, xcStale) =>
-            self.lookup(x) match
-              case (_, Some(xcStale0)) =>
-                self.analysisRunner.getAnalysisList().foreach(analysis =>
-                  val data = analysis.getData(xcStale0.id).get //FIXME: Unsafe
-                  val data2 = analysis.make(self, x)
-                  val newData = analysis.merge(data, data2)
+          self.analysisRunner.repair(self, xcUses, self.worklist)
 
-                  if newData != data then
-                    analysis.setData(xcStale0.id, newData)
-                    self.worklist.add(xcStale0.id) // This is only fine inside the forEach because it is a **Set**
-                )
-              case _ => throw new java.lang.Exception("Something went wrong in analysis rebuilding") // FIXME: Change exception or use assert()
-          )
 
         while (self.worklist.nonEmpty) {
           val brokenClasses = self.worklist.map(id => self.find(self.classes(id)))
