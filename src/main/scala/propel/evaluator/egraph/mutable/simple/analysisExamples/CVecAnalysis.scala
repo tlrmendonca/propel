@@ -167,7 +167,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
   def merge(data1: Data, data2: Data): Data = {
     // check if cvecs are the same
     if (data1 != data2) {
-      print("Warning: Merging two different cvecs -> contraction")
+      println("Warning: Merging two different cvecs -> contraction")
     }
     return data1
   }

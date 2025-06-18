@@ -498,7 +498,7 @@ object AnalysisTester {
         // ^ verify that the cvecs unify
         // ^ verify that the cvec for op1 is updated
 
-        printEGraphState(egraph.eclasses, cvec_analysis, "After unioning s and v:")
+        printEGraphState(egraph.eclasses, cvec_analysis, "After rebuild:")
     }
   }
 
