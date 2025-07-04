@@ -1,37 +1,57 @@
 package propel.evaluator.egraph.mutable.simple
 
 /** Possible [[Type]]s of [[ENode]]s. */
-enum BType:
-  case Number, String, Boolean, List, Function, Unknown
+enum LType:
+  case Number
+  case String
+  case Boolean
+  case List(of: LType)
+  case Function(args: Seq[LType], ret: LType)
+  case Never
   override def toString(): String = this match
     case Number => "Num"
     case String => "Str"
     case Boolean => "Bool"
-    case List => "List" // HERE
+    case List(of) => s"List(${of.toString()})"
+    case Function(args, ret) => s"(${args.map(_.toString()).mkString(", ")}) -> ${ret.toString()}"
     case _ => "?"
 
-/** Representation of [[Type]] */
-trait AnalysisType:
-  
-  def basicType: BType
+// Language
+enum Expr:
+  // first-order
+  case NumExpr(value: Number)
+  case StrExpr(value: String)
+  case BoolExpr(value: Boolean)
+  case ListExpr(elements: Seq[Expr])
+  case Var(name: String)
+  case FuncCall(name: Op, args: Seq[Expr])
+  // higher-order
+  case FuncDef(name: String, args: Seq[(String, LType)], body: Expr)
+  // impossible
+  case Broken
 
-/** Companion object of [[Type]]. */
-object AnalysisType:
+// Operators
+enum Op:
+  case PLUS 
+  case MINUS
+  case MULT
+  case UNKNOWN
+  // Debug: define toString
+  override def toString(): String = this match
+    case PLUS => "PLUS"
+    case MINUS => "MINUS"
+    case MULT => "MULT"
+    case UNKNOWN => "?"
 
-  def apply( basicType: BType ): AnalysisType = BasicType(basicType)
-
-  def apply( 
-    args: Seq[AnalysisType],
-    ret: AnalysisType
-  ): AnalysisType = FuncType(args = args, ret = ret)
-
-  case class BasicType( var basicType: BType) extends AnalysisType { 
-    override def toString(): String = basicType.toString()
+// ** Companion object for Op **
+object Op:
+  def fromString(s: String) : Op = {
+    if (s == "+" || s == "add") Op.PLUS
+    else if (s == "-" || s == "sub") Op.MINUS
+    else if (s == "*" || s == "mul") Op.MULT
+    else Op.UNKNOWN
   }
-  /** 
-   * Note that here [[args]] and [[ret]] are [[AnalysisType]], because functions can receive and return functions.
-   * [[BasicType]]s are not like this since basicType is the only thing they need to store, which is always an [[BType]].
-   */
-  case class FuncType( var basicType: BType = BType.Function, var args: Seq[AnalysisType], var ret: AnalysisType ) extends AnalysisType {
-    override def toString(): String = s"(${args.map(_.toString()).mkString(", ")}) -> ${ret.toString()}"
+
+  def fromString(o: Operator) : Op = {
+    Op.fromString(o.toString())
   }

@@ -1,7 +1,7 @@
 package propel.evaluator.egraph
 
 import propel.evaluator.egraph.{EClass, ENode, Language}
-import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
+import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, Op}
 
 import collection.mutable.{Map as MutableMap, Set as MutableSet}
 import propel.evaluator.egraph.EClass.Id
@@ -18,7 +18,7 @@ trait Analysis:
   /**
     * A group of operations the [[Analysis]] can use to interpret [[EClass]]es or [[ENode]]s.
     */
-  val operations: MutableMap[Operator, (Function1[Seq[Data], Data], Int)] = MutableMap.empty;
+  val operations: Op => Function1[Seq[Data], Data];
   
   /**
     * The [[GlobalData]] of the [[Analysis]] itself, i.e. events.

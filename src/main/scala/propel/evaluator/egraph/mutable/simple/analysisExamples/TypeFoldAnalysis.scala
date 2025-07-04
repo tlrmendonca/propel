@@ -2,7 +2,9 @@ package propel.evaluator.egraph.mutable.simple.analysisExamples
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
-import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, AnalysisType, BType}
+import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, AnalysisType, LType}
+import propel.evaluator.egraph.mutable.simple.Op.* 
+import propel.evaluator.egraph.mutable.simple.Expr.* 
 
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 
@@ -15,7 +17,7 @@ class TypeFoldAnalysis extends Analysis {
   /**
     * [[Data]] set as [[String]] to simplify representation of types.
     */
-  type Data = AnalysisType
+  type Data = LType
   val eclass_data = MutableMap()
 
 	/**
@@ -34,19 +36,18 @@ class TypeFoldAnalysis extends Analysis {
     * @return type of said node
     */
   def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
-    val f = operations.getOrElse(x.op, null)
-    val args = x.refs.map(ref => {
+    // Check if var
+    val t : LType = resolveVar(x.op.toString)
+    if (t != Never) return t
+
+    val f = operations(Op.fromString(x.op.toString))
+    val args : Seq[LType] = x.refs.map(ref => {
       val cRef = egraph.find(ref)
       getData(cRef.id).get
     })
     f match {
-      case null => AnalysisType(toType(x.op)) // TODO: distinguish a value from a non-defined function symbol ?
-      case f: (Function1[Seq[AnalysisType], AnalysisType], Int) =>
-        if (args.length != f._2) {
-          global_data = true
-          println("WARNING: Invalid number of arguments, expected " + f._2 + ", but " + args.length + " given")
-        }
-        f._1(args)
+      case Never => toType(x.op)
+      case f: Function1[Seq[LType], LType] => f(args)
     }
   }
 
@@ -58,12 +59,12 @@ class TypeFoldAnalysis extends Analysis {
     * @param op operator
     * @return type of said operator
     */
-  private def toType(op: Operator): BType = {
+  private def toType(op: Operator): LType = {
     op.toString match {
-      case "true" | "false" => BType.Boolean
-      case s if s.matches("""-?\d+(\.\d+)?""") => BType.Number
-      case s if s.matches("""\(\d+(,\d+)*\)""") => BType.List // lists looking like (1,2,3) or (42) // HERE
-      case _ => BType.String
+      case "true" | "false" => LType.Boolean
+      case s if s.matches("""-?\d+(\.\d+)?""") => LType.Number
+      case s if s.matches("""\(\d+(,\d+)*\)""") => LType.List // lists looking like (1,2,3) or (42) // HERE
+      case _ => LType.String
     }
   }
 
@@ -97,35 +98,60 @@ class TypeFoldAnalysis extends Analysis {
     println(s"WARNING: $msg")
   }
   
-  // TODO: there operators are very complicated and could use a refactor
-  // Something that would put emphasis on the logic part and leave the warnings handling in another place
-  val functions = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)] (
-    Operator("+") -> (args => {
-      if !(args(0).basicType == args(1).basicType && (args(0).basicType == BType.Number || args(0).basicType == BType.String)) then printWarning(s"Invalid types for +, given (${args(0)}) and (${args(1)})")
-      AnalysisType(args(0).basicType)
-      },2),
-    Operator("*") -> (args => {
-      if !(args(0).basicType == BType.Number && args(1).basicType == BType.Number) then printWarning(s"Invalid types for *, given (${args(0)}) and (${args(1)})")
-      AnalysisType(BType.Number)
-      },2),
-    Operator("add1") -> (args => {
-      if !(args(0).basicType == BType.Number) then printWarning(s"Invalid types for add1, given (${args(0)})")
-      AnalysisType(Seq(AnalysisType(BType.Number)), AnalysisType(BType.Number))
-    },1),
-    Operator("pow2") -> (args => {
-      if !(args(0).basicType == BType.Number) then printWarning(s"Invalid types for pow2, given (${args(0)})")
-      AnalysisType(BType.Number)
-    },1),
-  )
+  // val functions = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)] (
+  //   Operator("+") -> (args => {
+  //     if !(args(0).basicType == args(1).basicType && (args(0).basicType == LType.Number || args(0).basicType == LType.String)) then printWarning(s"Invalid types for +, given (${args(0)}) and (${args(1)})")
+  //     AnalysisType(args(0).basicType)
+  //     },2),
+  //   Operator("*") -> (args => {
+  //     if !(args(0).basicType == LType.Number && args(1).basicType == LType.Number) then printWarning(s"Invalid types for *, given (${args(0)}) and (${args(1)})")
+  //     AnalysisType(LType.Number)
+  //     },2),
+  //   Operator("add1") -> (args => {
+  //     if !(args(0).basicType == LType.Number) then printWarning(s"Invalid types for add1, given (${args(0)})")
+  //     AnalysisType(Seq(AnalysisType(LType.Number)), AnalysisType(LType.Number))
+  //   },1),
+  //   Operator("pow2") -> (args => {
+  //     if !(args(0).basicType == LType.Number) then printWarning(s"Invalid types for pow2, given (${args(0)})")
+  //     AnalysisType(LType.Number)
+  //   },1),
+  // )
 
-  val var_types = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)] (
-    Operator("x") -> (args => AnalysisType(BType.Number),0),
-    Operator("y") -> (args => AnalysisType(BType.Number),0),
-    Operator("s") -> (args => AnalysisType(BType.String),0),
-    Operator("v") -> (args => AnalysisType(BType.String),0),
-    Operator("l") -> (args => AnalysisType(BType.List),0),
-  )
+  // val var_types = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)] (
+  //   Operator("x") -> (args => AnalysisType(LType.Number),0),
+  //   Operator("y") -> (args => AnalysisType(LType.Number),0),
+  //   Operator("s") -> (args => AnalysisType(LType.String),0),
+  //   Operator("v") -> (args => AnalysisType(LType.String),0),
+  //   Operator("l") -> (args => AnalysisType(LType.List),0),
+  // )
+
+  override def operations(op: Op) : Function1[Seq[LType], LType] = op match {
+    case PLUS => args => {args match {
+      case Seq(LType.Number, LType.Number) => LType.Number
+      case Seq(LType.String, LType.String) => LType.String
+      case Seq(LType.List(of), LType.List(of2)) if of == of2 => LType.List(of)
+      case _ => printWarning(s"Invalid types for +, given (${args.mkString(", ")})"); Never
+    }}
+    case MINUS => args => {args match {
+      case Seq(LType.Number, LType.Number) => LType.Number
+      case _ => printWarning(s"Invalid types for -, given (${args.mkString(", ")})"); Never
+    }}
+    case MULT => args => {args match {
+      case Seq(LType.Number, LType.Number) => LType.Number
+      case _ => printWarning(s"Invalid types for *, given (${args.mkString(", ")})"); Never
+    }}
+    case UNKNOWN => args => {
+      printWarning(s"Unknown operator: $op with args (${args.mkString(", ")})")
+      Never
+    }
+  }
+
+  private def resolveVar(name: String): LType = name match {
+    case "x" | "y" => LType.Number
+    case "s" | "v" => LType.String
+    case "l" => LType.List(of: LType.Number) // assuming lists of numbers for now
+    case _ => Never
+  }
       
   operations ++= functions
-  operations ++= var_types
 }
