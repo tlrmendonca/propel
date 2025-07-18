@@ -6,7 +6,8 @@ import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 import propel.evaluator.egraph.mutable.simple.analysisExamples.TypeFoldAnalysis
-import propel.evaluator.egraph.mutable.simple.BType
+import propel.evaluator.egraph.mutable.simple.{Op, Expr, LType}
+import propel.evaluator.egraph.mutable.simple.Expr.*
 import scala.annotation.varargs
 
 /**
@@ -16,169 +17,163 @@ import scala.annotation.varargs
   * This allows a quick way to prove inequalities and efficient pruning of the lemma candidates space.
   */
 class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
-  /**
-    * [[Data]] set as [[Seq<EClass.Id>]] to refer to other classes.
-    */
-  type Data = Seq[String] // HERE
-  val eclass_data = MutableMap()
+    /**
+      * [[Data]] set as [[Seq<EClass.Id>]] to refer to other classes.
+      */
+    type Data = Seq[Expr]
+    val eclass_data = MutableMap()
 
-  type GlobalData = Unit // not relevant now
-  var global_data = ()
+    type GlobalData = Boolean // not relevant now
+    var global_data = false
 
-  val dependencies = List(type_analysis)
+    val dependencies = List(type_analysis)
 
-  private val CVEC_SIZE = 10
+    private val CVEC_SIZE = 5
 
-  val functions_integers = MutableHashMap[Operator, (Function1[Seq[Int], Int], Int)](
-    Operator("+") -> (args => args(0) + args(1), 2),
-    Operator("-") -> (args => args(0) - args(1), 2),
-    Operator("*") -> (args => args(0) * args(1), 2),
-    Operator("/") -> (args => args(0) / args(1), 2),
-    Operator("pow2") -> (args => args(0) * args(0), 1),
-  )
-
-  val functions_strings = MutableHashMap[Operator, (Function1[Seq[String], String], Int)](
-    Operator("+") -> (args => args.mkString(""), 2),
-    Operator("concat") -> (args => args.mkString(""), 2),
-  )
-
-  val functions_lists = MutableHashMap[Operator, (Function1[Seq[String], String], Int)](
-    Operator("concat") -> (args => {
-      val strip = (s: String) => s.stripPrefix("(").stripSuffix(")")
-      s"(${List(strip(args(1)), strip(args(2))).filter(_.nonEmpty).mkString(",")})"
-    }, 2),
-    // Operator("zip") -> (args => {
-    //   def toSeq(s: String): Seq[String] = Option(s).map(str => str.stripPrefix("(").stripSuffix(")").split(",").toList).getOrElse(List.empty)
-    //   toSeq(args(1)).zip(toSeq(args(2))).flatMap{case (a, b) => Seq(a, b)}.mkString("(", ",", ")")
-    // }, 2),
-  )
-
-  val all_functions = Map(
-    BType.Number -> functions_integers,
-    BType.String -> functions_strings,
-    BType.List -> functions_lists
-  )
-
-  // operations ++= functions // Note: we are avoiding using this bs but it is what was supposed to happen
-
-  /**
-    * Goal: calculate a characteristic vector based on given node.
-    * 
-    * @param g graph
-    * @param x node
-    * @return cvec
-    */
-  def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
-    // this is "safe" because make runs when we know the xc is brand new, i.e. no overriding
-    // (refer to EGraph.add() for more info)
-    val xc = egraph.find(EClass(x))
-    val xc_type = type_analysis.getData(x.id).get.basicType
-    
-    if(is_var(x)) {
-      // add variable x.op to the list of known variables
-      val var_type = type_analysis.getData(x.id).get
-      if (var_type.basicType == BType.Function) {
-        throw new Exception("Function type not supported for characteristic vector generation")
-      }
-      val cvec = generate_cvec(var_type.basicType)
-      eclass_data.update(xc.id, cvec)
-      return cvec
+    // Helper debug function
+    def printWarning(msg: String): Unit = {
+        global_data = true
+        println(s"WARNING: $msg")
     }
 
-    if(is_const(x)) {
-      eclass_data.update(xc.id, Seq.fill(CVEC_SIZE)(x.op.toString)) // e.g. "2" -> Seq(2, 2, 2, 2, 2, 2, 2, 2, 2, 2) because it always means 2
-      return Seq.fill(CVEC_SIZE)(x.op.toString)
-    }
-
-    // lastly: not a var and not a const -> expecting a function from the defined language
-
-    // onwards to finding calculating the cvec depending on the children
-    // build cvec one position at a time by applying function to the possible values of each side
-    val children = x.refs
-    var cvec = Seq.empty[String]
-    for (i <- 0 until CVEC_SIZE) {
-      var args : Seq[String] = children.map(c => {
-        val cc = egraph.find(c)
-        eclass_data.getOrElse(cc.id, Seq()).apply(i)
-      }) // inefficient as hell
-      // cast arguments
-      // FIXME: there is an assumption that operations happen between same-typed args
-      xc_type match {
-        case BType.Number => {
-          val int_args = args.map(_.toInt)
-          val f = functions_integers.getOrElse(x.op, null)
-          assert(f != null, "Unknown function: " + x.op)
-          val v = f._1(int_args)
-          cvec = cvec :+ v.toString()
+    override def operations(op: Op, ids: Option[Seq[EClass.Id]] = None): Function1[Seq[Data], Data] = {
+        // Note: arity and typing are assumed to be correct (checked in TypeFoldAnalysis)
+        assert(ids.isDefined, printWarning("CVecAnalysis operations called with undefined ids"))
+        val children : Seq[type_analysis.Data] = ids.get.map(id => type_analysis.getData(id).get)
+        // Use of Seq here is a workaround because I was lazy to do it properly before. A refactor is in order.
+        op match {
+            case Op.PLUS => (a : Seq[Seq[Expr]]) => { val args = a(0); children match
+                case Seq(LType.Number, LType.Number) => Seq(NumExpr(getValueNum(args(0)) + getValueNum(args(1))))
+                case Seq(LType.String, LType.String) => Seq(StrExpr(getValueStr(args(0)) + getValueStr(args(1))))
+                case Seq(LType.List(of), LType.List(of2)) => Seq(ListExpr(elements = getElementsList(args(0)) ++ getElementsList(args(1))))
+                case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
+            }
+            case Op.MINUS => (a : Seq[Seq[Expr]]) => { val args = a(0); children match
+                case Seq(LType.Number, LType.Number) => Seq(NumExpr(getValueNum(args(0)) - getValueNum(args(1))))
+                case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
+            }
+            case Op.MULT => (a : Seq[Seq[Expr]]) => { val args = a(0); children match
+                case Seq(LType.Number, LType.Number) => Seq(NumExpr(getValueNum(args(0)) * getValueNum(args(1))))
+                case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
+            }
+            case Op.UNKNOWN => args => { printWarning(s"Unknown operator: $op with args (${args.mkString(", ")})"); Seq()}
         }
-        case BType.String => {
-          val f = functions_strings.getOrElse(x.op, null)
-          assert(f != null, "Unknown function: " + x.op)
-          val v = f._1(args)
-          cvec = cvec :+ v.toString()
+    }
+
+    /**
+      * Goal: calculate a characteristic vector based on given node.
+      *
+      * @param g graph
+      * @param x node
+      * @return cvec
+      */
+    def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
+        // this is "safe" because make runs when we know the xc is brand new, i.e. no overriding
+        // (refer to EGraph.add() for more info)
+        val xc = egraph.find(EClass(x))
+        val xc_type = type_analysis.getData(xc.id).get
+        // assert(xc_type != Unit, printWarning(s"Type analysis data not found for node: " + x))
+
+        if(is_var(x)) {
+            // add variable x.op to the list of known variables
+            if (xc_type == LType.Function) {
+                throw new Exception("Function type not supported for characteristic vector generation")
+            }
+            val cvec = generate_cvec(xc_type)
+            eclass_data.update(xc.id, cvec)
+            return cvec
         }
-        case BType.List => {
-          val f = functions_lists.getOrElse(x.op, null)
-          assert(f != null, "Unknown function: " + x.op)
-          val v = f._1(args)
-          cvec = cvec :+ v.toString()
+
+        // TODO: improve this check (should be called "is_value" as in, something that is not a name of something)
+        if(is_const(x)) {
+            eclass_data.update(xc.id, Seq.fill(CVEC_SIZE)(StrExpr(x.op.toString))) // e.g. "2" -> Seq(2, 2, 2, 2, 2, 2, 2, 2, 2, 2) because it always means 2
+            return Seq.fill(CVEC_SIZE)(StrExpr(x.op.toString))
         }
-        case BType.Boolean => throw new Exception("Boolean type not supported for characteristic vector generation")
-        case BType.Function => throw new Exception("Function type not supported for characteristic vector generation")
-        case _ => throw new Exception("Unknown type: " + xc_type)
-      }
+
+        // lastly: not var and not const -> expecting an operation between classes (i.e. a function application)
+
+        // build cvec one position at a time by applying the operation to each value from the referenced classes
+        val children = x.refs.map(cc => egraph.find(cc)) // canonicalized children
+        val children_values = children.map(c => eclass_data.getOrElse(c.id, throw new Exception("No data found for child during cvec generation: " + c.id)))
+        var cvec = Seq.empty[Expr]
+        for (i <- 0 until CVEC_SIZE) {
+            // Note: typing is assumed to be correct (checked in TypeFoldAnalysis)
+            val args = children_values.map(_.apply(i)) // select i-th of each
+            val f = operations(
+                Op.fromString(x.op.toString),
+                Some(children.map(_.id))
+            )
+            // assert(f != Unit, printWarning(s"WARNING: Unknown function during cvec generation: " + x.op))
+
+            val res = f(Seq(args)) // res should be an Expr
+            // assert(res(0) != Unit, printWarning(s"Function returned null during cvec generation: " + x.op))
+            cvec = cvec :+ res(0)
+        }
+        eclass_data.update(xc.id, cvec)
+        return cvec
     }
-    eclass_data.update(xc.id, cvec)
-    return cvec
-  }
 
-  private def generate_cvec(t: BType): Seq[String] = {
-    t match {
-      case BType.Number => return Seq.fill(CVEC_SIZE)(scala.util.Random.nextInt(20).toString())
-      case BType.String => return Seq.fill(CVEC_SIZE)(scala.util.Random.alphanumeric.take(5).mkString)
-      case BType.List => return Seq.fill(CVEC_SIZE) {
-        val size = scala.util.Random.nextInt(3) + 1
-        val nums = Seq.fill(size)(scala.util.Random.nextInt(20).toString())
-        nums.mkString("(", ", ", ")")
-      }
-      case _ => throw new Exception("Unknown type: " + t)
+    // TODO: pass CVEC_SIZE as a parameter
+    private def generate_cvec(t: LType): Seq[Expr] = {
+        t match {
+            case LType.Number => return Seq.fill(CVEC_SIZE)(NumExpr(scala.util.Random.nextInt(20)))
+            case LType.String => return Seq.fill(CVEC_SIZE)(StrExpr(scala.util.Random.alphanumeric.take(5).mkString))
+            case LType.Boolean => {
+                val seq = Seq(true, false) ++ Seq.fill(CVEC_SIZE - 2)(scala.util.Random.nextBoolean())
+                seq.map(b => BoolExpr(b))
+            }
+            case LType.List(of) => {
+                return Seq.fill(CVEC_SIZE) {
+                    val size = scala.util.Random.nextInt(3) + 1
+                    val els = of match {
+                        case LType.Number => Seq.fill(size)(NumExpr(scala.util.Random.nextInt(20)))
+                        case LType.String => Seq.fill(size)(StrExpr(scala.util.Random.alphanumeric.take(5).mkString))
+                        case LType.Boolean => Seq.fill(size)(BoolExpr(scala.util.Random.nextBoolean()))
+                        case LType.List(_) => Seq.fill(CVEC_SIZE)(ListExpr(generate_cvec(of))) // TODO: this does not respect size. i should fix this because it is a technically a mistake
+                        case _ => throw new Exception("Unsupported type in list generation: " + of)
+                    }
+                    ListExpr(els)
+                }
+            }
+            case _ => throw new Exception("Unknown type in vector generation: " + t)
+        }
     }
-    val cvec = Seq.fill(CVEC_SIZE)(scala.util.Random.nextInt(20).toString())
-    return cvec
-  }
 
-  private def is_var(x: ENode): Boolean = {
-    val op = x.op.toString
-    return (op.length == 1 && op.head.isLetter)
-  }
-
-  private def is_const(x: ENode): Boolean = {
-    val op = x.op.toString
-    return (op.forall(_.isDigit))
-  }
-
-  /**
-    * Goal: check for contradicting cvecs
-    * 
-    * @param data1 
-    * @param data2 
-    * @return data1
-    */
-  def merge(data1: Data, data2: Data): Data = {
-    // check if cvecs are the same
-    if (data1 != data2) {
-      println("Warning: Merging two different cvecs -> contraction")
+    // op is single letter character
+    private def is_var(x: ENode): Boolean = {
+        // TODO: this can be replaced with a variable map / another analysis for this purpose
+        val op = x.op.toString
+        return (op.length == 1 && op.head.isLetter)
     }
-    return data1
-  }
 
-  /**
-    * Goal: Empty
-    * 
-    * @param egraph graph
-    * @param id class id
-    */
-  def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
-    return
-  }
+    // op is a number
+    private def is_const(x: ENode): Boolean = {
+        val op = x.op.toString
+        return (op.forall(_.isDigit))
+    }
+
+    /**
+      * Goal: check for contradicting cvecs
+      *
+      * @param data1
+      * @param data2
+      * @return data1
+      */
+    def merge(data1: Data, data2: Data): Data = {
+        // check if cvecs are the same
+        if (data1 != data2) {
+            printWarning(s"Warning: Merging two different cvecs -> contradiction")
+        }
+        return data1
+    }
+
+    /**
+      * Goal: Empty
+      *
+      * @param egraph graph
+      * @param id class id
+      */
+    def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
+        return
+    }
 }

@@ -1,5 +1,7 @@
 package propel.evaluator.egraph.mutable.simple
 
+import propel.evaluator.egraph.Operator
+
 /** Possible [[Type]]s of [[ENode]]s. */
 enum LType:
   case Number
@@ -18,17 +20,44 @@ enum LType:
 
 // Language
 enum Expr:
-  // first-order
-  case NumExpr(value: Number)
-  case StrExpr(value: String)
-  case BoolExpr(value: Boolean)
-  case ListExpr(elements: Seq[Expr])
-  case Var(name: String)
-  case FuncCall(name: Op, args: Seq[Expr])
-  // higher-order
-  case FuncDef(name: String, args: Seq[(String, LType)], body: Expr)
-  // impossible
-  case Broken
+    // first-order
+    case NumExpr(value: Double)
+    case StrExpr(value: String)
+    case BoolExpr(value: Boolean)
+    case ListExpr(elements: Seq[Expr])
+    case Var(name: String)
+    case FuncCall(name: Op, args: Seq[Expr])
+    // higher-order
+    case FuncDef(name: String, args: Seq[(String, LType)], body: Expr)
+    // impossible
+    case Broken
+    override def toString(): String = this match
+        case NumExpr(value) => s"Num($value)"
+        case StrExpr(value) => s"Str($value)"
+        case BoolExpr(value) => s"Bool($value)"
+        case ListExpr(elements) => s"List(${elements.mkString(", ")})"
+        case Var(name) => s"Var($name)"
+        case FuncCall(name, args) => s"FuncCall($name, ${args.mkString(", ")})"
+        case FuncDef(name, args, body) => s"FuncDef($name, ${args.map(_._1).mkString(", ")}, $body)"
+        case Broken => "Broken" 
+
+object Expr:
+    def getValueNum(expr: Expr): Double = expr match
+        case NumExpr(value) => value
+        case _ => throw new IllegalArgumentException("Expected NumExpr, got: " + expr)
+
+    def getValueStr(expr: Expr): String = expr match
+        case StrExpr(value) => value
+        case _ => throw new IllegalArgumentException("Expected StrExpr, got: " + expr)
+
+    def getValueBool(expr: Expr): Boolean = expr match
+        case BoolExpr(value) => value
+        case _ => throw new IllegalArgumentException("Expected BoolExpr, got: " + expr)
+    
+    def getElementsList(expr: Expr): Seq[Expr] = expr match
+        case ListExpr(elements) => elements
+        case _ => throw new IllegalArgumentException("Expected ListExpr, got: " + expr)
+
 
 // Operators
 enum Op:

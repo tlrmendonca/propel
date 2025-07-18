@@ -2,10 +2,10 @@ package propel.evaluator.egraph.mutable.simple.analysisExamples
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
-import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, AnalysisType, LType}
-import propel.evaluator.egraph.mutable.simple.Op.* 
-import propel.evaluator.egraph.mutable.simple.Expr.* 
-
+import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, Op, Expr, LType}
+import propel.evaluator.egraph.mutable.simple.LType.*
+import propel.evaluator.egraph.mutable.simple.Expr.*
+import propel.evaluator.egraph.mutable.simple.Op.*
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 
 /**
@@ -26,7 +26,7 @@ class TypeFoldAnalysis extends Analysis {
   type GlobalData = Boolean
   var global_data = false
 
-  val dependencies = List()
+  val dependencies = scala.List()
 
   /**
     * Goal: Represent the type of a node.
@@ -38,7 +38,7 @@ class TypeFoldAnalysis extends Analysis {
   def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
     // Check if var
     val t : LType = resolveVar(x.op.toString)
-    if (t != Never) return t
+    if (t != LType.Never) return t
 
     val f = operations(Op.fromString(x.op.toString))
     val args : Seq[LType] = x.refs.map(ref => {
@@ -46,7 +46,7 @@ class TypeFoldAnalysis extends Analysis {
       getData(cRef.id).get
     })
     f match {
-      case Never => toType(x.op)
+      case LType.Never => toType(x.op)
       case f: Function1[Seq[LType], LType] => f(args)
     }
   }
@@ -63,7 +63,7 @@ class TypeFoldAnalysis extends Analysis {
     op.toString match {
       case "true" | "false" => LType.Boolean
       case s if s.matches("""-?\d+(\.\d+)?""") => LType.Number
-      case s if s.matches("""\(\d+(,\d+)*\)""") => LType.List // lists looking like (1,2,3) or (42) // HERE
+      case s if s.matches("""\(\d+(,\d+)*\)""") => LType.List(Never) // lists looking like (1,2,3) or (42) // HERE
       case _ => LType.String
     }
   }
@@ -98,34 +98,7 @@ class TypeFoldAnalysis extends Analysis {
     println(s"WARNING: $msg")
   }
   
-  // val functions = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)] (
-  //   Operator("+") -> (args => {
-  //     if !(args(0).basicType == args(1).basicType && (args(0).basicType == LType.Number || args(0).basicType == LType.String)) then printWarning(s"Invalid types for +, given (${args(0)}) and (${args(1)})")
-  //     AnalysisType(args(0).basicType)
-  //     },2),
-  //   Operator("*") -> (args => {
-  //     if !(args(0).basicType == LType.Number && args(1).basicType == LType.Number) then printWarning(s"Invalid types for *, given (${args(0)}) and (${args(1)})")
-  //     AnalysisType(LType.Number)
-  //     },2),
-  //   Operator("add1") -> (args => {
-  //     if !(args(0).basicType == LType.Number) then printWarning(s"Invalid types for add1, given (${args(0)})")
-  //     AnalysisType(Seq(AnalysisType(LType.Number)), AnalysisType(LType.Number))
-  //   },1),
-  //   Operator("pow2") -> (args => {
-  //     if !(args(0).basicType == LType.Number) then printWarning(s"Invalid types for pow2, given (${args(0)})")
-  //     AnalysisType(LType.Number)
-  //   },1),
-  // )
-
-  // val var_types = MutableHashMap[Operator, (Function1[Seq[AnalysisType], AnalysisType], Int)] (
-  //   Operator("x") -> (args => AnalysisType(LType.Number),0),
-  //   Operator("y") -> (args => AnalysisType(LType.Number),0),
-  //   Operator("s") -> (args => AnalysisType(LType.String),0),
-  //   Operator("v") -> (args => AnalysisType(LType.String),0),
-  //   Operator("l") -> (args => AnalysisType(LType.List),0),
-  // )
-
-  override def operations(op: Op) : Function1[Seq[LType], LType] = op match {
+  override def operations(op: Op, ids: Option[Seq[EClass.Id]] = None) : Function1[Seq[LType], LType] = op match {
     case PLUS => args => {args match {
       case Seq(LType.Number, LType.Number) => LType.Number
       case Seq(LType.String, LType.String) => LType.String
@@ -140,7 +113,7 @@ class TypeFoldAnalysis extends Analysis {
       case Seq(LType.Number, LType.Number) => LType.Number
       case _ => printWarning(s"Invalid types for *, given (${args.mkString(", ")})"); Never
     }}
-    case UNKNOWN => args => {
+    case UNKNOWN | _ => args => {
       printWarning(s"Unknown operator: $op with args (${args.mkString(", ")})")
       Never
     }
@@ -149,9 +122,7 @@ class TypeFoldAnalysis extends Analysis {
   private def resolveVar(name: String): LType = name match {
     case "x" | "y" => LType.Number
     case "s" | "v" => LType.String
-    case "l" => LType.List(of: LType.Number) // assuming lists of numbers for now
+    case "l" => LType.List(LType.Number) // assuming lists of numbers for now
     case _ => Never
   }
-      
-  operations ++= functions
 }
