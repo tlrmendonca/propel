@@ -2,9 +2,8 @@ package propel.evaluator.egraph.mutable.simple.analysisExamples
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
-import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, Op, Expr, LType}
+import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, Op, LType}
 import propel.evaluator.egraph.mutable.simple.LType.*
-import propel.evaluator.egraph.mutable.simple.Expr.*
 import propel.evaluator.egraph.mutable.simple.Op.*
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 

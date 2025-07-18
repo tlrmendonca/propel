@@ -19,11 +19,20 @@ enum LType:
     case _ => "?"
 
 // Language
+enum Value:
+    case NumValue(value: Double)
+    case StrValue(value: String)
+    case BoolValue(value: Boolean)
+    case ListValue(elements: Seq[Value])
+    override def toString(): String = this match
+        case NumValue(value) => s"Num($value)"
+        case StrValue(value) => s"Str($value)"
+        case BoolValue(value) => s"Bool($value)"
+        case ListValue(elements) => s"List(${elements.mkString(", ")})"
+
 enum Expr:
     // first-order
-    case NumExpr(value: Double)
-    case StrExpr(value: String)
-    case BoolExpr(value: Boolean)
+    case ValueExpr(value: Value)
     case ListExpr(elements: Seq[Expr])
     case Var(name: String)
     case FuncCall(name: Op, args: Seq[Expr])
@@ -32,31 +41,29 @@ enum Expr:
     // impossible
     case Broken
     override def toString(): String = this match
-        case NumExpr(value) => s"Num($value)"
-        case StrExpr(value) => s"Str($value)"
-        case BoolExpr(value) => s"Bool($value)"
+        case ValueExpr(value) => s"Value($value)"
         case ListExpr(elements) => s"List(${elements.mkString(", ")})"
         case Var(name) => s"Var($name)"
         case FuncCall(name, args) => s"FuncCall($name, ${args.mkString(", ")})"
         case FuncDef(name, args, body) => s"FuncDef($name, ${args.map(_._1).mkString(", ")}, $body)"
         case Broken => "Broken" 
 
-object Expr:
-    def getValueNum(expr: Expr): Double = expr match
-        case NumExpr(value) => value
-        case _ => throw new IllegalArgumentException("Expected NumExpr, got: " + expr)
+object Value:
+    def getValueNum(value: Value): Double = value match
+        case NumValue(value) => value
+        case _ => throw new IllegalArgumentException("Expected NumValue, got: " + value)
 
-    def getValueStr(expr: Expr): String = expr match
-        case StrExpr(value) => value
-        case _ => throw new IllegalArgumentException("Expected StrExpr, got: " + expr)
+    def getValueStr(value: Value): String = value match
+        case StrValue(value) => value
+        case _ => throw new IllegalArgumentException("Expected StrValue, got: " + value)
 
-    def getValueBool(expr: Expr): Boolean = expr match
-        case BoolExpr(value) => value
-        case _ => throw new IllegalArgumentException("Expected BoolExpr, got: " + expr)
+    def getValueBool(value: Value): Boolean = value match
+        case BoolValue(value) => value
+        case _ => throw new IllegalArgumentException("Expected BoolValue, got: " + value)
     
-    def getElementsList(expr: Expr): Seq[Expr] = expr match
-        case ListExpr(elements) => elements
-        case _ => throw new IllegalArgumentException("Expected ListExpr, got: " + expr)
+    def getElementsList(value: Value): Seq[Value] = value match
+        case ListValue(elements) => elements
+        case _ => throw new IllegalArgumentException("Expected ListValue, got: " + value)
 
 
 // Operators

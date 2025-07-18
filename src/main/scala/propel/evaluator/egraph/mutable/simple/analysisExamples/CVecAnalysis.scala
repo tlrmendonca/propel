@@ -6,8 +6,9 @@ import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 import propel.evaluator.egraph.mutable.simple.analysisExamples.TypeFoldAnalysis
-import propel.evaluator.egraph.mutable.simple.{Op, Expr, LType}
+import propel.evaluator.egraph.mutable.simple.{Op, Expr, Value, LType}
 import propel.evaluator.egraph.mutable.simple.Expr.*
+import propel.evaluator.egraph.mutable.simple.Value.*
 import scala.annotation.varargs
 
 /**
@@ -20,7 +21,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
     /**
       * [[Data]] set as [[Seq<EClass.Id>]] to refer to other classes.
       */
-    type Data = Seq[Expr]
+    type Data = Seq[Value]
     val eclass_data = MutableMap()
 
     type GlobalData = Boolean // not relevant now
@@ -42,18 +43,18 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
         val children : Seq[type_analysis.Data] = ids.get.map(id => type_analysis.getData(id).get)
         // Use of Seq here is a workaround because I was lazy to do it properly before. A refactor is in order.
         op match {
-            case Op.PLUS => (a : Seq[Seq[Expr]]) => { val args = a(0); children match
-                case Seq(LType.Number, LType.Number) => Seq(NumExpr(getValueNum(args(0)) + getValueNum(args(1))))
-                case Seq(LType.String, LType.String) => Seq(StrExpr(getValueStr(args(0)) + getValueStr(args(1))))
-                case Seq(LType.List(of), LType.List(of2)) => Seq(ListExpr(elements = getElementsList(args(0)) ++ getElementsList(args(1))))
+            case Op.PLUS => (a : Seq[Seq[Value]]) => { val args = a(0); children match
+                case Seq(LType.Number, LType.Number) => Seq(NumValue(getValueNum(args(0)) + getValueNum(args(1))))
+                case Seq(LType.String, LType.String) => Seq(StrValue(getValueStr(args(0)) + getValueStr(args(1))))
+                case Seq(LType.List(of), LType.List(of2)) => Seq(ListValue(elements = getElementsList(args(0)) ++ getElementsList(args(1))))
                 case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
             }
-            case Op.MINUS => (a : Seq[Seq[Expr]]) => { val args = a(0); children match
-                case Seq(LType.Number, LType.Number) => Seq(NumExpr(getValueNum(args(0)) - getValueNum(args(1))))
+            case Op.MINUS => (a : Seq[Seq[Value]]) => { val args = a(0); children match
+                case Seq(LType.Number, LType.Number) => Seq(NumValue(getValueNum(args(0)) - getValueNum(args(1))))
                 case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
             }
-            case Op.MULT => (a : Seq[Seq[Expr]]) => { val args = a(0); children match
-                case Seq(LType.Number, LType.Number) => Seq(NumExpr(getValueNum(args(0)) * getValueNum(args(1))))
+            case Op.MULT => (a : Seq[Seq[Value]]) => { val args = a(0); children match
+                case Seq(LType.Number, LType.Number) => Seq(NumValue(getValueNum(args(0)) * getValueNum(args(1))))
                 case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
             }
             case Op.UNKNOWN => args => { printWarning(s"Unknown operator: $op with args (${args.mkString(", ")})"); Seq()}
@@ -86,8 +87,8 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
 
         // TODO: improve this check (should be called "is_value" as in, something that is not a name of something)
         if(is_const(x)) {
-            eclass_data.update(xc.id, Seq.fill(CVEC_SIZE)(StrExpr(x.op.toString))) // e.g. "2" -> Seq(2, 2, 2, 2, 2, 2, 2, 2, 2, 2) because it always means 2
-            return Seq.fill(CVEC_SIZE)(StrExpr(x.op.toString))
+            eclass_data.update(xc.id, Seq.fill(CVEC_SIZE)(StrValue(x.op.toString))) // e.g. "2" -> Seq(2, 2, 2, 2, 2, 2, 2, 2, 2, 2) because it always means 2
+            return Seq.fill(CVEC_SIZE)(StrValue(x.op.toString))
         }
 
         // lastly: not var and not const -> expecting an operation between classes (i.e. a function application)
@@ -95,7 +96,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
         // build cvec one position at a time by applying the operation to each value from the referenced classes
         val children = x.refs.map(cc => egraph.find(cc)) // canonicalized children
         val children_values = children.map(c => eclass_data.getOrElse(c.id, throw new Exception("No data found for child during cvec generation: " + c.id)))
-        var cvec = Seq.empty[Expr]
+        var cvec = Seq.empty[Value]
         for (i <- 0 until CVEC_SIZE) {
             // Note: typing is assumed to be correct (checked in TypeFoldAnalysis)
             val args = children_values.map(_.apply(i)) // select i-th of each
@@ -105,7 +106,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
             )
             // assert(f != Unit, printWarning(s"WARNING: Unknown function during cvec generation: " + x.op))
 
-            val res = f(Seq(args)) // res should be an Expr
+            val res = f(Seq(args)) // res should be an Value
             // assert(res(0) != Unit, printWarning(s"Function returned null during cvec generation: " + x.op))
             cvec = cvec :+ res(0)
         }
@@ -114,25 +115,25 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
     }
 
     // TODO: pass CVEC_SIZE as a parameter
-    private def generate_cvec(t: LType): Seq[Expr] = {
+    private def generate_cvec(t: LType): Seq[Value] = {
         t match {
-            case LType.Number => return Seq.fill(CVEC_SIZE)(NumExpr(scala.util.Random.nextInt(20)))
-            case LType.String => return Seq.fill(CVEC_SIZE)(StrExpr(scala.util.Random.alphanumeric.take(5).mkString))
+            case LType.Number => return Seq.fill(CVEC_SIZE)(NumValue(scala.util.Random.nextInt(20)))
+            case LType.String => return Seq.fill(CVEC_SIZE)(StrValue(scala.util.Random.alphanumeric.take(5).mkString))
             case LType.Boolean => {
                 val seq = Seq(true, false) ++ Seq.fill(CVEC_SIZE - 2)(scala.util.Random.nextBoolean())
-                seq.map(b => BoolExpr(b))
+                seq.map(b => BoolValue(b))
             }
             case LType.List(of) => {
                 return Seq.fill(CVEC_SIZE) {
                     val size = scala.util.Random.nextInt(3) + 1
                     val els = of match {
-                        case LType.Number => Seq.fill(size)(NumExpr(scala.util.Random.nextInt(20)))
-                        case LType.String => Seq.fill(size)(StrExpr(scala.util.Random.alphanumeric.take(5).mkString))
-                        case LType.Boolean => Seq.fill(size)(BoolExpr(scala.util.Random.nextBoolean()))
-                        case LType.List(_) => Seq.fill(CVEC_SIZE)(ListExpr(generate_cvec(of))) // TODO: this does not respect size. i should fix this because it is a technically a mistake
+                        case LType.Number => Seq.fill(size)(NumValue(scala.util.Random.nextInt(20)))
+                        case LType.String => Seq.fill(size)(StrValue(scala.util.Random.alphanumeric.take(5).mkString))
+                        case LType.Boolean => Seq.fill(size)(BoolValue(scala.util.Random.nextBoolean()))
+                        case LType.List(_) => Seq.fill(CVEC_SIZE)(ListValue(generate_cvec(of))) // TODO: this does not respect size. i should fix this because it is a technically a mistake
                         case _ => throw new Exception("Unsupported type in list generation: " + of)
                     }
-                    ListExpr(els)
+                    ListValue(els)
                 }
             }
             case _ => throw new Exception("Unknown type in vector generation: " + t)
@@ -149,7 +150,11 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
     // op is a number
     private def is_const(x: ENode): Boolean = {
         val op = x.op.toString
-        return (op.forall(_.isDigit))
+        val operation = Op.fromString(op)
+        operation match {
+            case Op.UNKNOWN => return true // not an operation
+            case _ => return false
+        }
     }
 
     /**
