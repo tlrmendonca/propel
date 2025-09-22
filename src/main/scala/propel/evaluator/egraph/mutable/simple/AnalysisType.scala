@@ -19,6 +19,7 @@ enum LType:
     case _ => "?"
 
 // Language
+// NOTE: Values are a subset of Expr, i.e., those that cannot be simplified further
 enum Value:
     case NumValue(value: Double)
     case StrValue(value: String)

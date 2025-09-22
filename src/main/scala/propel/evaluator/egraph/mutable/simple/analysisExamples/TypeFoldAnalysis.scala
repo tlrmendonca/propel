@@ -45,7 +45,7 @@ class TypeFoldAnalysis extends Analysis {
       getData(cRef.id).get
     })
     f match {
-      case LType.Never => toType(x.op)
+      case LType.Never => toType(x.op) // FIXME: unreachable case, cuz f is a function type a -> b, id like to have this branch trigger if "b" is Never
       case f: Function1[Seq[LType], LType] => f(args)
     }
   }

@@ -27,6 +27,11 @@ trait Analysis:
   var global_data: GlobalData;
 
   /**
+    *  A temporary map to store data before merging.
+    */
+  var preMergeData: MutableMap[Analysis, (Any, Any)] = MutableMap()
+
+  /**
     * A list of [[Analysis]]s that this [[Analysis]] depends on, i.e. need to have run before it.
     * 
     * @note An [[Analysis]] is never responsible for handling data or calling functions of the its dependencies, nor

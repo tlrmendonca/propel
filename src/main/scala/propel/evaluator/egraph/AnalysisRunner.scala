@@ -40,6 +40,21 @@ class AnalysisRunner {
         )
     }
 
+    def _getDependencies(analysis: Analysis): MutableSet[Analysis] = {
+        var deps: MutableSet[Analysis] = MutableSet()
+        
+        def aux(a: Analysis): Unit = {
+            a.dependencies.foreach(dep => 
+                if !deps.contains(dep) then
+                    deps.add(dep)
+                    aux(dep)
+            )
+        }
+        
+        aux(analysis)
+        return deps
+    }
+
     /**
          * Runs *merge* for each analysis.
          *
@@ -48,13 +63,20 @@ class AnalysisRunner {
          * @note This function deletes data2 after merging.
          */
     def merge(id1: EClass.Id, id2: EClass.Id): Unit = {
+        var preMergeData : MutableMap[Analysis, (Any, Any)] = MutableMap()
+
         analysisList.foreach(analysis =>
             val data1 = analysis.getData(id1).get
             val data2 = analysis.getData(id2).get
 
+            // set up preMergeData with relevant dependencies such that merge can use previous data about the classes, e.g. types
+            preMergeData(analysis) = (data1, data2)
+            val dependencies : MutableSet[Analysis] = _getDependencies(analysis)
+            analysis.preMergeData = preMergeData.filter{ case (a, _) => dependencies.contains(a) }
+
             val data = analysis.merge(data1, data2)
             
-            analysis.setData(id1, data) 
+            analysis.setData(id1, data)
             analysis.deleteData(id2)
         )
     }

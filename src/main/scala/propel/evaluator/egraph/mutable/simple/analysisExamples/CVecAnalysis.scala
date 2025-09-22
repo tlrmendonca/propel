@@ -9,7 +9,6 @@ import propel.evaluator.egraph.mutable.simple.analysisExamples.TypeFoldAnalysis
 import propel.evaluator.egraph.mutable.simple.{Op, Expr, Value, LType}
 import propel.evaluator.egraph.mutable.simple.Expr.*
 import propel.evaluator.egraph.mutable.simple.Value.*
-import scala.annotation.varargs
 
 /**
   * [[Characteristic Vectors]]
@@ -17,17 +16,17 @@ import scala.annotation.varargs
   * E.g.: x is assigned the randomly generated list [0, 3, 25, 100], then 2x is assigned the list [0, 6, 50, 200].
   * This allows a quick way to prove inequalities and efficient pruning of the lemma candidates space.
   */
-class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
+class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) extends Analysis {
     /**
       * [[Data]] set as [[Seq<EClass.Id>]] to refer to other classes.
       */
-    type Data = Seq[Value]
+    type Data = Seq[Value] // Value is important because I want my CVECs to not be "simplifiable" anymore
     val eclass_data = MutableMap()
 
     type GlobalData = Boolean // not relevant now
     var global_data = false
 
-    val dependencies = List(type_analysis)
+    val dependencies = List(type_analysis, varsAnalysis)
 
     private val CVEC_SIZE = 5
 
@@ -75,7 +74,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
         val xc_type = type_analysis.getData(xc.id).get
         // assert(xc_type != Unit, printWarning(s"Type analysis data not found for node: " + x))
 
-        if(is_var(x)) {
+        if(is_var(egraph, x)) {
             // add variable x.op to the list of known variables
             if (xc_type == LType.Function) {
                 throw new Exception("Function type not supported for characteristic vector generation")
@@ -125,14 +124,8 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
             }
             case LType.List(of) => {
                 return Seq.fill(CVEC_SIZE) {
-                    val size = scala.util.Random.nextInt(3) + 1
-                    val els = of match {
-                        case LType.Number => Seq.fill(size)(NumValue(scala.util.Random.nextInt(20)))
-                        case LType.String => Seq.fill(size)(StrValue(scala.util.Random.alphanumeric.take(5).mkString))
-                        case LType.Boolean => Seq.fill(size)(BoolValue(scala.util.Random.nextBoolean()))
-                        case LType.List(_) => Seq.fill(CVEC_SIZE)(ListValue(generate_cvec(of))) // TODO: this does not respect size. i should fix this because it is a technically a mistake
-                        case _ => throw new Exception("Unsupported type in list generation: " + of)
-                    }
+                    val size = scala.util.Random.nextInt(3)
+                    val els = (0 until size).map(_ => generate_cvec(of)) // TODO: properly test it
                     ListValue(els)
                 }
             }
@@ -141,10 +134,11 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
     }
 
     // op is single letter character
-    private def is_var(x: ENode): Boolean = {
-        // TODO: this can be replaced with a variable map / another analysis for this purpose
-        val op = x.op.toString
-        return (op.length == 1 && op.head.isLetter)
+    private def is_var[G](egraph: G, x: ENode)(using EGraphOps[G]): Boolean = {
+      val xc = egraph.find(EClass(x))
+      val xc_var = varsAnalysis.getData(xc.id).get // data is Boolean
+      
+      return xc_var
     }
 
     // op is a number
@@ -162,10 +156,18 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis) extends Analysis {
       *
       * @param data1
       * @param data2
-      * @return data1
+      * @return merged cvec data or warning
       */
     def merge(data1: Data, data2: Data): Data = {
         // check if cvecs are the same
+        val varsData = preMergeData(varsAnalysis).asInstanceOf[(Boolean, Boolean)]
+
+        if (varsData._1 && varsData._2) {
+            // both are variables -> merge is ok and cvec is merged too (assuming types were checked in type_analysis)
+            // make cvec of CVEC_SIZE taking a value from either data1 or data2, one of each at a time
+            return (0 until CVEC_SIZE).map(i => if (i % 2 == 0) data1(i) else data2(i))
+        }
+
         if (data1 != data2) {
             printWarning(s"Warning: Merging two different cvecs -> contradiction")
         }

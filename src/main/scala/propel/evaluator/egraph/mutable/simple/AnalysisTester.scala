@@ -2,6 +2,7 @@ package propel.evaluator.egraph.mutable.simple
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.simple.analysisExamples.*
+import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 
 object AnalysisTester {
 
@@ -73,6 +74,27 @@ object AnalysisTester {
     println(prettyPrintData(type_fold_analysis.eclass_data.toMap))
   }
 
+  def testVarsAnalysis(): Unit = {
+    import EGraph.EGraphOps
+
+    val varList = MutableHashMap("x" -> LType.Number, "y" -> LType.Number, "s" -> LType.String)
+    val vars_analysis = new VarsAnalysis(varList)
+
+    val egraph = EGraph()
+    egraph.addAnalysis(vars_analysis)
+
+    val varENodes @ Seq(xn, yn, sn, constn) = Seq(
+      ENode(Operator("x")),
+      ENode(Operator("y")),
+      ENode(Operator("s")),
+      ENode(Operator("1")),
+    )
+    val varEClasses @ Seq(x, y, s, const) =
+      varENodes.map(egraph.add)
+    
+    printEGraphState(egraph.eclasses, vars_analysis, "Vars Analysis:")
+  }
+
   /**
     * Goals:
     * 1. Single operation with two variables
@@ -85,11 +107,10 @@ object AnalysisTester {
       "\n2. Nested operations" +
       "\n3. Trying to find common CVecs with more complex functions" +
       "\n4. Lists and Strings")
-
     
     val selection = scala.io.StdIn.readLine("Enter your choice (1-4): ").trim
     
-    val cvec_analysis = new CVecAnalysis(new TypeFoldAnalysis())
+    val cvec_analysis = new CVecAnalysis(new TypeFoldAnalysis(), new VarsAnalysis())
     val egraph = EGraph()
     egraph.addAnalysis(cvec_analysis)
     
@@ -198,7 +219,7 @@ object AnalysisTester {
   // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester" 
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
-    testCVecAnalysis()
+    testVarsAnalysis()
     println("AnalysisTester completed.")
   }
 }
