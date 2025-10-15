@@ -18,7 +18,7 @@ trait Analysis:
   /**
     * A group of operations the [[Analysis]] can use to interpret [[EClass]]es or [[ENode]]s.
     */
-  def operations(op: Op, ids: Option[Seq[EClass.Id]] = None) : Function1[Seq[Data], Data];
+  def operations(op: Op, ids: Option[Seq[EClass.Id]] = None) : Option[Function1[Seq[Data], Data]];
   
   /**
     * The [[GlobalData]] of the [[Analysis]] itself, i.e. events.

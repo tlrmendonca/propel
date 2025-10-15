@@ -20,10 +20,20 @@ object AnalysisTester {
   }
 
   def printEGraphState(eclasses: Map[EClass, Set[ENode]], analysis: Analysis, message: String): Unit = {
-    println(message)
+    println(s"\n$message\n")
     println(prettyPrintEClasses(eclasses))
     print("\n")
     println(prettyPrintData(analysis.eclass_data.toMap))
+  }
+
+  def printSimilarExpressions[G](egraph: G, e1: EClass, e2: EClass, analysis: Analysis)(using EGraphOps[G]): Unit = {
+    val expr1 = ExpressionExtractor.extract(egraph, e1)
+    val expr2 = ExpressionExtractor.extract(egraph, e2)
+    println(s"""
+      |Extracted expressions:
+      |  1: ${expr1.padTo(40, ' ')} CVEC: ${analysis.getData(e1.id)}
+      |  2: ${expr2.padTo(40, ' ')} CVEC: ${analysis.getData(e2.id)}
+      |""".stripMargin)
   }
 
   /**
@@ -33,7 +43,8 @@ object AnalysisTester {
   def testTypeFold(): Unit = {
     import EGraph.EGraphOps
 
-    val type_fold_analysis = new TypeFoldAnalysis()
+    val vars_analysis = new VarsAnalysis(MutableHashMap())
+    val type_fold_analysis = new TypeFoldAnalysis(vars_analysis)
 
     val egraph = EGraph()
     egraph.addAnalysis(type_fold_analysis)
@@ -102,124 +113,186 @@ object AnalysisTester {
     * 3. Trying to find common CVecs with more complex functions
     */
   def testCVecAnalysis(): Unit = {
-    println("Select an example to run:" +
-      "\n1. Single operation with two variables" +
-      "\n2. Nested operations" +
-      "\n3. Trying to find common CVecs with more complex functions" +
-      "\n4. Lists and Strings")
-    
-    val selection = scala.io.StdIn.readLine("Enter your choice (1-4): ").trim
-    
-    val cvec_analysis = new CVecAnalysis(new TypeFoldAnalysis(), new VarsAnalysis())
-    val egraph = EGraph()
-    egraph.addAnalysis(cvec_analysis)
-    
-    selection match {
-      case "1" => 
-        val eNodes @ Seq(varn, var2n) = Seq(
-          ENode(Operator("x")),
-          ENode(Operator("y")),
-        )
-        val eClasses @ Seq(varx, vary) =
-          eNodes.map(egraph.add)
-        
-        printEGraphState(egraph.eclasses, cvec_analysis, "Initial state with just variables:")
-        
-        val opENodes @ Seq(op1n) = Seq(
-          ENode(Operator("+"), Seq(varx, vary)),
-        )
-        val opEClasses @ Seq(op1) =
-          opENodes.map(egraph.add)
-        
-        printEGraphState(egraph.eclasses, cvec_analysis, "After adding operations:")
-        // ^ final cved is created correctly by adding each element of the x and y cvecs
-        
-      case "2" =>
-        val constantENodes @ Seq(xn, yn, twon) = Seq(
-          ENode(Operator("x")),
-          ENode(Operator("y")),
-          ENode(Operator("2")),
-        )
-        val constantEClasses @ Seq(x, y, two) =
-          constantENodes.map(egraph.add)
+    while (true) {
+      println("Select an example to run:" +
+        "\n1. Single operation with two variables" +
+        "\n2. Freshmen's Dream (Confirm Inequality)" +
+        "\n3. Binomial Expansion (True)" +
+        "\n4. Division Simplification (Almost True)" +
+        "\n5. (Broken) Lists and Strings")
+      
+      val selection = scala.io.StdIn.readLine("Enter your choice (1-4): ").trim
+      
+      val vars_analysis = new VarsAnalysis(MutableHashMap(
+              "x" -> LType.Number,
+              "y" -> LType.Number
+          ))
+      val type_analysis = new TypeFoldAnalysis(vars_analysis)
+      val cvec_analysis = new CVecAnalysis(
+          type_analysis,
+          vars_analysis
+      )
+      val egraph = EGraph()
+      egraph.addAnalysis(cvec_analysis)
+      
+      
+      selection match {
+        case "1" => 
+          val eNodes @ Seq(varn, var2n) = Seq(
+            ENode(Operator("x")),
+            ENode(Operator("y")),
+          )
+          val eClasses @ Seq(varx, vary) =
+            eNodes.map(egraph.add)
           
-        val op1n = ENode(Operator("+"), Seq(x, y))
-        val op1 = egraph.add(op1n)
-        val op2n = ENode(Operator("+"), Seq(op1, two))
-        val op2 = egraph.add(op2n)
+          printEGraphState(egraph.eclasses, cvec_analysis, "Initial state with just variables:")
+          
+          val opENodes @ Seq(op1n) = Seq(
+            ENode(Operator("+"), Seq(varx, vary)),
+          )
+          val opEClasses @ Seq(op1) =
+            opENodes.map(egraph.add)
+          
+          printEGraphState(egraph.eclasses, cvec_analysis, "After adding operations:")
+          // ^ final cved is created correctly by adding each element of the x and y cvecs
+          
+        case "2" =>
+          // "Freshman's Dream" test
+          // (x + y)² == x² + y²  (false in general, true only in characteristic 2 fields)
+          val xn = ENode(Operator("x"))
+          val x = egraph.add(xn)
+          val yn = ENode(Operator("y"))
+          val y = egraph.add(yn)
 
-        printEGraphState(egraph.eclasses, cvec_analysis, "After adding operations:")
-        // ^ final cved is created correctly by adding each element of the x and y cvecs and then squaring each one
-        
-      case "3" =>
-        // "Unintuitive" expression equivalencies
-        // (x + y)² = x² + 2xy + y²
-        val constantENodes @ Seq(xn, yn, twon) = Seq(
-          ENode(Operator("x")),
-          ENode(Operator("y")),
-          ENode(Operator("2")),
-        )
-        val constantEClasses @ Seq(x, y, two) =
-          constantENodes.map(egraph.add)
-        
-        // (x + y)²
-        val op1n = ENode(Operator("+"), Seq(x, y))
-        val op1 = egraph.add(op1n)
-        val op2n = ENode(Operator("pow2"), Seq(op1))
-        val op2 = egraph.add(op2n)
+          // (x + y)²
+          val sum = ENode(Operator("+"), Seq(x, y))
+          val sumClass = egraph.add(sum)
+          val leftExpr = ENode(Operator("pow2"), Seq(sumClass))
+          val left = egraph.add(leftExpr)
 
-        // x² + 2xy + y²
-        val opsENodes @ Seq(powxn, powyn, xyn) = Seq(
-          ENode(Operator("pow2"), Seq(x)),
-          ENode(Operator("pow2"), Seq(y)),
-          ENode(Operator("*"), Seq(x, y)),
-        )
-        val opsEClasses @ Seq(powx, powy, xy) =
-          opsENodes.map(egraph.add)
-        val op3n = ENode(Operator("*"), Seq(xy, two))
-        val op3 = egraph.add(op3n)
-        val op4n = ENode(Operator("+"), Seq(powx, op3))
-        val op4 = egraph.add(op4n)
-        val op5n = ENode(Operator("+"), Seq(op4, powy))
-        val op5 = egraph.add(op5n)
+          // x² + y²
+          val powxn = ENode(Operator("pow2"), Seq(x))
+          val powx = egraph.add(powxn)
+          val powyn = ENode(Operator("pow2"), Seq(y))
+          val powy = egraph.add(powyn)
+          val rightExpr = ENode(Operator("+"), Seq(powx, powy))
+          val right = egraph.add(rightExpr)
 
-        printEGraphState(egraph.eclasses, cvec_analysis, "After adding second level operations:")
-        // ^ search for cvecs of the classes pow2(+(x,y)) and +(+(pow2(x),*(*(x,y),2)),pow2(y))
+          printEGraphState(egraph.eclasses, cvec_analysis, "Freshman's Dream test:")
+          
+          printSimilarExpressions(egraph, left, right, cvec_analysis)
+          // Expected: not equivalent over reals; equivalent mod 2
+          
+        case "3" =>
+          // "Unintuitive" expression equivalencies
+          // (x + y)² = x² + 2xy + y²
+          val constantENodes @ Seq(xn, yn, twon) = Seq(
+            ENode(Operator("x")),
+            ENode(Operator("y")),
+            ENode(Operator("2")),
+          )
+          val constantEClasses @ Seq(x, y, two) =
+            constantENodes.map(egraph.add)
+          
+          // (x + y)²
+          val op1n = ENode(Operator("+"), Seq(x, y))
+          val op1 = egraph.add(op1n)
+          val op2n = ENode(Operator("pow2"), Seq(op1))
+          val op2 = egraph.add(op2n)
 
-      case "4" | _ =>
-        val constantENodes @ Seq(sn, vn, ln) = Seq(
-          ENode(Operator("s")),
-          ENode(Operator("v")),
-          ENode(Operator("l")),
-        )
-        val constantEClasses @ Seq(s, v, l) =
-          constantENodes.map(egraph.add)
-        // ^ verify that the cvecs are created according to type
+          // x² + 2xy + y²
+          val opsENodes @ Seq(powxn, powyn, xyn) = Seq(
+            ENode(Operator("pow2"), Seq(x)),
+            ENode(Operator("pow2"), Seq(y)),
+            ENode(Operator("*"), Seq(x, y)),
+          )
+          val opsEClasses @ Seq(powx, powy, xy) =
+            opsENodes.map(egraph.add)
+          val op3n = ENode(Operator("*"), Seq(xy, two))
+          val op3 = egraph.add(op3n)
+          val op4n = ENode(Operator("+"), Seq(powx, op3))
+          val op4 = egraph.add(op4n)
+          val op5n = ENode(Operator("+"), Seq(op4, powy))
+          val op5 = egraph.add(op5n)
 
-        printEGraphState(egraph.eclasses, cvec_analysis, "Basic nodes added:")
+          printEGraphState(egraph.eclasses, cvec_analysis, "After adding second level operations:")
+          // ^ search for cvecs of the classes pow2(+(x,y)) and +(+(pow2(x),*(*(x,y),2)),pow2(y))
 
-        val op1n = ENode(Operator("concat"), Seq(s, v))
-        val op1 = egraph.add(op1n)
-        // ^ verify concatenation of strings in cvecs works fine
+          printSimilarExpressions(egraph, op2, op5, cvec_analysis)
 
-        printEGraphState(egraph.eclasses, cvec_analysis, "Concat s and v:")
+        case "4" =>
+          // Division simplification edge case
+          // (x² - 1) / (x - 1) == x + 1
+          // True for all x ≠ 1, undefined when x = 1
+          val xn = ENode(Operator("x"))
+          val x = egraph.add(xn)
+          val onen = ENode(Operator("1"))
+          val one = egraph.add(onen)
 
-        egraph.union(s, v)
+          // (x² - 1)
+          val pow2xn = ENode(Operator("pow2"), Seq(x))
+          val pow2x = egraph.add(pow2xn)
+          val op1n = ENode(Operator("-"), Seq(pow2x, one))
+          val op1 = egraph.add(op1n)
 
-        printEGraphState(egraph.eclasses, cvec_analysis, "After unioning before rebuild s and v:")
+          // (x - 1)
+          val op2n = ENode(Operator("-"), Seq(x, one))
+          val op2 = egraph.add(op2n)
 
-        egraph.rebuild()
-        // ^ verify that the cvecs unify
-        // ^ verify that the cvec for op1 is updated
+          // (x² - 1) / (x - 1)
+          val leftn = ENode(Operator("div"), Seq(op1, op2))
+          val left = egraph.add(leftn)
 
-        printEGraphState(egraph.eclasses, cvec_analysis, "After rebuild:")
+          // x + 1
+          val rightn = ENode(Operator("+"), Seq(x, one))
+          val right = egraph.add(rightn)
+
+          printEGraphState(egraph.eclasses, cvec_analysis, "Division simplification edge case:")
+          val exp1 = ExpressionExtractor.extract(egraph, left)
+          val exp2 = ExpressionExtractor.extract(egraph, right)
+          printSimilarExpressions(egraph, left, right, cvec_analysis)
+          // Expected: equivalent for all x except x = 1 (division by zero)
+
+        case "5" | _ =>
+          val constantENodes @ Seq(sn, vn, ln) = Seq(
+            ENode(Operator("s")),
+            ENode(Operator("v")),
+            ENode(Operator("l")),
+          )
+          val constantEClasses @ Seq(s, v, l) =
+            constantENodes.map(egraph.add)
+          // ^ verify that the cvecs are created according to type
+
+          printEGraphState(egraph.eclasses, cvec_analysis, "Basic nodes added:")
+
+          val op1n = ENode(Operator("concat"), Seq(s, v))
+          val op1 = egraph.add(op1n)
+          // ^ verify concatenation of strings in cvecs works fine
+
+          printEGraphState(egraph.eclasses, cvec_analysis, "Concat s and v:")
+
+          egraph.union(s, v)
+
+          printEGraphState(egraph.eclasses, cvec_analysis, "After unioning before rebuild s and v:")
+
+          egraph.rebuild()
+          // ^ verify that the cvecs unify
+          // ^ verify that the cvec for op1 is updated
+
+          printEGraphState(egraph.eclasses, cvec_analysis, "After rebuild:")
+      }
+      val continue = scala.io.StdIn.readLine("Run another example? (y/n): ")
+      if (continue != "y") {
+        println("Exiting AnalysisTester.")
+        return
+      }
     }
   }
 
   // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester" 
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
-    testVarsAnalysis()
+    testCVecAnalysis()
     println("AnalysisTester completed.")
   }
 }

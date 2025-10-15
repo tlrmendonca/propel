@@ -82,14 +82,14 @@ class AnalysisRunner {
     }
 
     /**
-         * Runs *modify* for each analysis.
-         *
-         * @param egraph the specified [[Egraph]].
-         * @param id an [[EClass]]'s Id.
-         * 
-         * @note This function must be idempotent, i.e. modify(modify()) = 
-         * modify(). Usually adds an [[ENode]] to the given [[EClass]].
-         */
+       * Runs *modify* for each analysis.
+       *
+       * @param egraph the specified [[Egraph]].
+       * @param id an [[EClass]]'s Id.
+       * 
+       * @note This function must be idempotent, i.e. modify(modify()) = 
+       * modify(). Usually adds an [[ENode]] to the given [[EClass]].
+       */
     def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
         analysisList.foreach(analysis => analysis.modify(egraph, id))
     }

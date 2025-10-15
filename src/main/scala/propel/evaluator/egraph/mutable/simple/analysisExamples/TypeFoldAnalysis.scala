@@ -12,7 +12,7 @@ import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as Muta
   * Level: Medium
   * Goal: Assert that all enodes respect typing relations
   */
-class TypeFoldAnalysis extends Analysis {
+class TypeFoldAnalysis(varsAnalysis: VarsAnalysis) extends Analysis {
   /**
     * [[Data]] set as [[String]] to simplify representation of types.
     */
@@ -25,7 +25,7 @@ class TypeFoldAnalysis extends Analysis {
   type GlobalData = Boolean
   var global_data = false
 
-  val dependencies = scala.List()
+  val dependencies = scala.List(varsAnalysis)
 
   /**
     * Goal: Represent the type of a node.
@@ -36,18 +36,22 @@ class TypeFoldAnalysis extends Analysis {
     */
   def make[G](egraph: G, x: ENode)(using EGraphOps[G]): Data = {
     // Check if var
-    val t : LType = resolveVar(x.op.toString)
-    if (t != LType.Never) return t
+    val xc = egraph.find(EClass(x))
+    val xc_var = varsAnalysis.getData(xc.id).get // data is Boolean
+    
+    if (xc_var) return varsAnalysis.varTypes.getOrElse(x.op.toString(), Never)
 
-    val f = operations(Op.fromString(x.op.toString))
+    // If not var, check if operation
+    val fo = operations(Op.fromString(x.op.toString))
+    if (fo.isEmpty) return toType(x.op) // basic type (number, string, boolean)
+    
+    // Run operation/function
+    val f = fo.get
     val args : Seq[LType] = x.refs.map(ref => {
       val cRef = egraph.find(ref)
       getData(cRef.id).get
     })
-    f match {
-      case LType.Never => toType(x.op) // FIXME: unreachable case, cuz f is a function type a -> b, id like to have this branch trigger if "b" is Never
-      case f: Function1[Seq[LType], LType] => f(args)
-    }
+    return f(args)
   }
 
   /**
@@ -59,12 +63,14 @@ class TypeFoldAnalysis extends Analysis {
     * @return type of said operator
     */
   private def toType(op: Operator): LType = {
-    op.toString match {
+    val res = op.toString match {
       case "true" | "false" => LType.Boolean
       case s if s.matches("""-?\d+(\.\d+)?""") => LType.Number
       case s if s.matches("""\(\d+(,\d+)*\)""") => LType.List(Never) // lists looking like (1,2,3) or (42) // HERE
       case _ => LType.String
     }
+    println("Basic type detected for operator " + op.toString + " : " + res.toString())
+    return res
   }
 
   /**
@@ -97,25 +103,34 @@ class TypeFoldAnalysis extends Analysis {
     println(s"WARNING: $msg")
   }
   
-  override def operations(op: Op, ids: Option[Seq[EClass.Id]] = None) : Function1[Seq[LType], LType] = op match {
-    case PLUS => args => {args match {
+  override def operations(op: Op, ids: Option[Seq[EClass.Id]] = None) : Option[Function1[Seq[LType], LType]] = op match {
+    case PLUS => Some(args => {args match {
       case Seq(LType.Number, LType.Number) => LType.Number
       case Seq(LType.String, LType.String) => LType.String
       case Seq(LType.List(of), LType.List(of2)) if of == of2 => LType.List(of)
       case _ => printWarning(s"Invalid types for +, given (${args.mkString(", ")})"); Never
-    }}
-    case MINUS => args => {args match {
+    }})
+    case MINUS => Some(args => {args match {
       case Seq(LType.Number, LType.Number) => LType.Number
       case _ => printWarning(s"Invalid types for -, given (${args.mkString(", ")})"); Never
-    }}
-    case MULT => args => {args match {
+    }})
+    case MULT => Some(args => {args match {
       case Seq(LType.Number, LType.Number) => LType.Number
       case _ => printWarning(s"Invalid types for *, given (${args.mkString(", ")})"); Never
-    }}
-    case UNKNOWN | _ => args => {
-      printWarning(s"Unknown operator: $op with args (${args.mkString(", ")})")
-      Never
-    }
+    }})
+    case DIV => Some(args => {args match {
+      case Seq(LType.Number, LType.Number) => LType.Number
+      case _ => printWarning(s"Invalid types for /, given (${args.mkString(", ")})"); Never
+    }})
+    case POW2 => Some(args => {args match {
+      case Seq(LType.Number) => LType.Number
+      case _ => printWarning(s"Invalid types for ^, given (${args.mkString(", ")})"); Never
+    }})
+    case SQRT => Some(args => {args match {
+      case Seq(LType.Number) => LType.Number
+      case _ => printWarning(s"Invalid types for sqrt, given (${args.mkString(", ")})"); Never
+    }})
+    case UNKNOWN => None
   }
 
   private def resolveVar(name: String): LType = name match {

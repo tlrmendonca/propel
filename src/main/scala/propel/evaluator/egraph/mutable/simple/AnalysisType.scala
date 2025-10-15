@@ -66,18 +66,36 @@ object Value:
         case ListValue(elements) => elements
         case _ => throw new IllegalArgumentException("Expected ListValue, got: " + value)
 
+// ──────────────────────────────────────────────────────────────
+// Language definitions
+// ──────────────────────────────────────────────────────────────
+//
+// Simple arithmetic operations:
+// Plus, Minus, Mult, Div, Pow2, Sqrt
+//  
+// Other operations to use Strings and Lists:
+// Concat (a.k.a Plus) -> very simple, just to have more types than numbers
+//
+// ──────────────────────────────────────────────────────────────
+
 
 // Operators
 enum Op:
   case PLUS 
   case MINUS
   case MULT
+  case DIV
+  case POW2
+  case SQRT
   case UNKNOWN
   // Debug: define toString
   override def toString(): String = this match
     case PLUS => "PLUS"
     case MINUS => "MINUS"
     case MULT => "MULT"
+    case DIV => "DIV"
+    case POW2 => "POW2"
+    case SQRT => "SQRT"
     case UNKNOWN => "?"
 
 // ** Companion object for Op **
@@ -86,9 +104,14 @@ object Op:
     if (s == "+" || s == "add") Op.PLUS
     else if (s == "-" || s == "sub") Op.MINUS
     else if (s == "*" || s == "mul") Op.MULT
+    else if (s == "/" || s == "div") Op.DIV
+    else if (s == "^" || s == "pow2") Op.POW2
+    else if (s == "sqrt") Op.SQRT
     else Op.UNKNOWN
   }
 
   def fromString(o: Operator) : Op = {
     Op.fromString(o.toString())
   }
+  // FIXME: When "unkown", op shows just "?" which is not very helpful for debugging
+  // Would need some way for "UNKNOWN" to carry the original string

@@ -27,6 +27,8 @@ class VarsAnalysis(varList: MutableHashMap[String, LType] = MutableHashMap()) ex
 
   val dependencies = scala.List()
 
+  val varTypes = varList
+
   /**
     * Goal: Recognize if a node is a variable.
     *
@@ -59,11 +61,10 @@ class VarsAnalysis(varList: MutableHashMap[String, LType] = MutableHashMap()) ex
     return
   }
 
-  // FIXME: This is a hack to get rid of an error ... this doesn't make any sense
-  override def operations(op: Op, ids: Option[Seq[EClass.Id]] = None): Function1[Seq[Data], Data] = {
-    assert(ids.isDefined, println("VarsAnalysis operations called with undefined ids"))
+  // NOTE: This is a hack to get rid of an error ... this doesn't do anything but needs to be implemented by default
+  override def operations(op: Op, ids: Option[Seq[EClass.Id]] = None): Option[Function1[Seq[Data], Data]] = {
     op match {
-      case _ => args => { println(s"Unknown operator: $op with args (${args.mkString(", ")})"); false }
+      case _ => Some(args => { println(s"VarsAnalysis operation is empty, continuing ..."); true })
     }
   }
 }

@@ -7,8 +7,11 @@ import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 import propel.evaluator.egraph.mutable.simple.analysisExamples.TypeFoldAnalysis
 import propel.evaluator.egraph.mutable.simple.{Op, Expr, Value, LType}
+import propel.evaluator.egraph.mutable.simple.Op.*
 import propel.evaluator.egraph.mutable.simple.Expr.*
 import propel.evaluator.egraph.mutable.simple.Value.*
+import scala.annotation.varargs
+import propel.dsl.impl.Checked.check
 
 /**
   * [[Characteristic Vectors]]
@@ -36,28 +39,67 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
         println(s"WARNING: $msg")
     }
 
-    override def operations(op: Op, ids: Option[Seq[EClass.Id]] = None): Function1[Seq[Data], Data] = {
+    override def operations(op: Op, children_ids: Option[Seq[EClass.Id]] = None): Option[Function1[Seq[Data], Data]] = {
         // Note: arity and typing are assumed to be correct (checked in TypeFoldAnalysis)
-        assert(ids.isDefined, printWarning("CVecAnalysis operations called with undefined ids"))
-        val children : Seq[type_analysis.Data] = ids.get.map(id => type_analysis.getData(id).get)
+        assert(children_ids.isDefined, printWarning("CVecAnalysis operations called with undefined children_ids"))
+        val children_types : Seq[type_analysis.Data] = children_ids.get.map(id => type_analysis.getData(id).get)
         // Use of Seq here is a workaround because I was lazy to do it properly before. A refactor is in order.
+        // NOTE: What happens is this operation should work with Data, but I for some reason wrote the call site to call this operation
+        // on every 2 elements of data by hand, while what should happen is receiving the full Seq[Data] here and applying it to each
+        // pair, trio, whatever the arity is, case by case.
         op match {
-            case Op.PLUS => (a : Seq[Seq[Value]]) => { val args = a(0); children match
+            case PLUS => Some((a : Seq[Seq[Value]]) => { val args = a(0); children_types match
                 case Seq(LType.Number, LType.Number) => Seq(NumValue(getValueNum(args(0)) + getValueNum(args(1))))
                 case Seq(LType.String, LType.String) => Seq(StrValue(getValueStr(args(0)) + getValueStr(args(1))))
                 case Seq(LType.List(of), LType.List(of2)) => Seq(ListValue(elements = getElementsList(args(0)) ++ getElementsList(args(1))))
                 case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
-            }
-            case Op.MINUS => (a : Seq[Seq[Value]]) => { val args = a(0); children match
+            })
+            case MINUS => Some((a : Seq[Seq[Value]]) => { val args = a(0); children_types match
                 case Seq(LType.Number, LType.Number) => Seq(NumValue(getValueNum(args(0)) - getValueNum(args(1))))
                 case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
-            }
-            case Op.MULT => (a : Seq[Seq[Value]]) => { val args = a(0); children match
+            })
+            case MULT => Some((a : Seq[Seq[Value]]) => { val args = a(0); children_types match
                 case Seq(LType.Number, LType.Number) => Seq(NumValue(getValueNum(args(0)) * getValueNum(args(1))))
                 case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
-            }
-            case Op.UNKNOWN => args => { printWarning(s"Unknown operator: $op with args (${args.mkString(", ")})"); Seq()}
+            })
+            case DIV => Some((a : Seq[Seq[Value]]) => { val args = a(0); children_types match
+                case Seq(LType.Number, LType.Number) => {
+                    val denom = getValueNum(args(1))
+                    if (denom == 0) {
+                        printWarning(s"Division by zero in $op with args (${args.mkString(", ")})")
+                        Seq(NumValue(0)) // arbitrary value
+                    } else {
+                        Seq(NumValue(getValueNum(args(0)) / denom))
+                    }
+                }
+                case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
+            })
+            case POW2 => Some((a : Seq[Seq[Value]]) => { val args = a(0); children_types match
+                case Seq(LType.Number) => Seq(NumValue(Math.pow(getValueNum(args(0)), 2)))
+                case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
+            })
+            case SQRT => Some((a : Seq[Seq[Value]]) => { val args = a(0); children_types match
+                case Seq(LType.Number) => Seq(NumValue(Math.sqrt(getValueNum(args(0)))))
+                case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq()
+            })
+            case UNKNOWN => Some(args => { printWarning(s"CVEC: Unknown operator: $op with args (${args.mkString(", ")})"); Seq()})
         }
+    }
+
+    private def check_type(xc_type: LType, op: Operator) : Value = {
+      xc_type match {
+        case LType.Number => NumValue(op.toString.toDouble)
+        case LType.String => StrValue(op.toString)
+        case LType.Boolean => BoolValue(op.toString.toBoolean)
+        // Special case -> op is a "string" that represents a list, e.g. "(1,2,3)" so we need to do some string manipulation
+        case LType.List(of) => {
+          val els = op.toString.stripPrefix("(").stripSuffix(")").split(",").nn.toSeq
+          val els_ops = els.map(s => Operator(s.nn)) // convert to individual operators
+          ListValue(els_ops.map(o => check_type(of, o))) // make a sequence where each element will check its type
+          // Note: this is hacky and innefficient. We know lists are homogeneous, so we could just check the type of the first element
+        }
+        case _ => throw new Exception("Unknown type in cvec_analysis: " + xc_type)
+      }
     }
 
     /**
@@ -84,10 +126,14 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
             return cvec
         }
 
-        // TODO: improve this check (should be called "is_value" as in, something that is not a name of something)
-        if(is_const(x)) {
-            eclass_data.update(xc.id, Seq.fill(CVEC_SIZE)(StrValue(x.op.toString))) // e.g. "2" -> Seq(2, 2, 2, 2, 2, 2, 2, 2, 2, 2) because it always means 2
-            return Seq.fill(CVEC_SIZE)(StrValue(x.op.toString))
+        // TODO: improve this check (should be called "is_value", as in, something that is not a name of something). because this being
+        // a correct constant check relies on the fact that i comes after a is_var check, leading to only having operations and constants here
+        if(is_not_operation(x)) {
+            // check type
+            val value_of : Value = check_type(xc_type, x.op)
+
+            eclass_data.update(xc.id, Seq.fill(CVEC_SIZE)(value_of)) // e.g. "2" -> Seq(2, 2, 2, 2, 2, 2, 2, 2, 2, 2) because it always means 2
+            return Seq.fill(CVEC_SIZE)(value_of)
         }
 
         // lastly: not var and not const -> expecting an operation between classes (i.e. a function application)
@@ -99,13 +145,15 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
         for (i <- 0 until CVEC_SIZE) {
             // Note: typing is assumed to be correct (checked in TypeFoldAnalysis)
             val args = children_values.map(_.apply(i)) // select i-th of each
-            val f = operations(
+            // println(s"Generating cvec for $x, args: ${args.mkString(", ")}")
+            val fo = operations(
                 Op.fromString(x.op.toString),
                 Some(children.map(_.id))
             )
-            // assert(f != Unit, printWarning(s"WARNING: Unknown function during cvec generation: " + x.op))
+            assert(fo.isDefined, printWarning(s"WARNING: Undefined/unknown function during cvec generation: " + x.op))
+            val f = fo.get
 
-            val res = f(Seq(args)) // res should be an Value
+            val res = f(Seq(args)) // res should be a Value
             // assert(res(0) != Unit, printWarning(s"Function returned null during cvec generation: " + x.op))
             cvec = cvec :+ res(0)
         }
@@ -116,7 +164,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
     // TODO: pass CVEC_SIZE as a parameter
     private def generate_cvec(t: LType): Seq[Value] = {
         t match {
-            case LType.Number => return Seq.fill(CVEC_SIZE)(NumValue(scala.util.Random.nextInt(20)))
+            case LType.Number => return Seq.fill(CVEC_SIZE)(NumValue(util.Random.between(-20, 21)))
             case LType.String => return Seq.fill(CVEC_SIZE)(StrValue(scala.util.Random.alphanumeric.take(5).mkString))
             case LType.Boolean => {
                 val seq = Seq(true, false) ++ Seq.fill(CVEC_SIZE - 2)(scala.util.Random.nextBoolean())
@@ -125,7 +173,8 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
             case LType.List(of) => {
                 return Seq.fill(CVEC_SIZE) {
                     val size = scala.util.Random.nextInt(3)
-                    val els = (0 until size).map(_ => generate_cvec(of)) // TODO: properly test it
+                    // generate a random number of cvecs to fill this list cvec
+                    val els = (0 until size).map(_ => ListValue(generate_cvec(of)))
                     ListValue(els)
                 }
             }
@@ -142,7 +191,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
     }
 
     // op is a number
-    private def is_const(x: ENode): Boolean = {
+    private def is_not_operation(x: ENode): Boolean = {
         val op = x.op.toString
         val operation = Op.fromString(op)
         operation match {
