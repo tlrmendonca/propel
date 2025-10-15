@@ -201,12 +201,13 @@ object AnalysisTester {
           val op2 = egraph.add(op2n)
 
           // x² + 2xy + y²
-          val opsENodes @ Seq(powxn, powyn, xyn) = Seq(
+          val opsENodes @ Seq(powxn, powyn, xyn, yxn) = Seq(
             ENode(Operator("pow2"), Seq(x)),
             ENode(Operator("pow2"), Seq(y)),
             ENode(Operator("*"), Seq(x, y)),
+            ENode(Operator("*"), Seq(y, x)),
           )
-          val opsEClasses @ Seq(powx, powy, xy) =
+          val opsEClasses @ Seq(powx, powy, xy, yx) =
             opsENodes.map(egraph.add)
           val op3n = ENode(Operator("*"), Seq(xy, two))
           val op3 = egraph.add(op3n)
@@ -214,6 +215,9 @@ object AnalysisTester {
           val op4 = egraph.add(op4n)
           val op5n = ENode(Operator("+"), Seq(op4, powy))
           val op5 = egraph.add(op5n)
+
+          egraph.union(xy, yx)
+          egraph.rebuild()
 
           printEGraphState(egraph.eclasses, cvec_analysis, "After adding second level operations:")
           // ^ search for cvecs of the classes pow2(+(x,y)) and +(+(pow2(x),*(*(x,y),2)),pow2(y))
