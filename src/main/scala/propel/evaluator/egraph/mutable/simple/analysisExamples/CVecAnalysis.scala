@@ -19,7 +19,11 @@ import propel.dsl.impl.Checked.check
   * E.g.: x is assigned the randomly generated list [0, 3, 25, 100], then 2x is assigned the list [0, 6, 50, 200].
   * This allows a quick way to prove inequalities and efficient pruning of the lemma candidates space.
   */
-class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) extends Analysis {
+class CVecAnalysis(
+    type_analysis: TypeFoldAnalysis,
+    vars_analysis: VarsAnalysis,
+    disequality_analysis: DisequalityAnalysis
+) extends Analysis {
     /**
       * [[Data]] set as [[Seq<EClass.Id>]] to refer to other classes.
       */
@@ -29,7 +33,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
     type GlobalData = Boolean // not relevant now
     var global_data = false
 
-    val dependencies = List(type_analysis, varsAnalysis)
+    val dependencies = List(type_analysis, vars_analysis, disequality_analysis)
 
     private val CVEC_SIZE = 5
 
@@ -185,7 +189,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
     // op is single letter character
     private def is_var[G](egraph: G, x: ENode)(using EGraphOps[G]): Boolean = {
       val xc = egraph.find(EClass(x))
-      val xc_var = varsAnalysis.getData(xc.id).get // data is Boolean
+      val xc_var = vars_analysis.getData(xc.id).get // data is Boolean
       
       return xc_var
     }
@@ -209,7 +213,7 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
       */
     def merge(data1: Data, data2: Data): Data = {
         // check if cvecs are the same
-        val varsData = preMergeData(varsAnalysis).asInstanceOf[(Boolean, Boolean)]
+        val varsData = preMergeData(vars_analysis).asInstanceOf[(Boolean, Boolean)]
 
         if (varsData._1 && varsData._2) {
             // both are variables -> merge is ok and cvec is merged too (assuming types were checked in type_analysis)
@@ -224,12 +228,34 @@ class CVecAnalysis(type_analysis: TypeFoldAnalysis, varsAnalysis: VarsAnalysis) 
     }
 
     /**
-      * Goal: Empty
+      * Goal: Manages disequality analysis disunion.
       *
       * @param egraph graph
       * @param id class id
       */
     def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
-        return
+        val cur_cvec = this.getData(id).get
+        val diseq_set = disequality_analysis.getData(id).get
+        // compare cur_cvec to all other cvecs. those that are different call disequality_analysis.disunion
+        eclass_data.foreach{ case (other_id, other_cvec) =>
+            // 3 conditions: not already in disequality set, not same id, different cvecs
+            if (!(diseq_set.contains(other_id)) && other_id != id && other_cvec != cur_cvec) {
+                disequality_analysis.disunion(id, other_id)
+            }
+        }
+    }
+
+    /**
+      * Goal: expose disequality_analysis.is_consistent.
+      * 
+      * Note: [[is_consistent]] is a method to be called when we want to check the overall consistency of the egraph,
+      * but doesn't really give much information. This exists in part because we cannot know when merging
+      * disequality sets if we are merging a set that contains contradictions directly (because we don't know ids there).
+      * 
+      * @param egraph graph
+      * @return consistency boolean
+      */
+    def is_consistent[G](egraph: G)(using EGraphOps[G]): Boolean = {
+        return disequality_analysis.is_consistent(egraph)
     }
 }

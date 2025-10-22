@@ -42,7 +42,7 @@ class AnalysisRunner {
 
     def _getDependencies(analysis: Analysis): MutableSet[Analysis] = {
         var deps: MutableSet[Analysis] = MutableSet()
-        
+
         def aux(a: Analysis): Unit = {
             a.dependencies.foreach(dep => 
                 if !deps.contains(dep) then
