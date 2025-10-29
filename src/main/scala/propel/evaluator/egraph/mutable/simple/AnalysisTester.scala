@@ -128,9 +128,11 @@ object AnalysisTester {
               "y" -> LType.Number
           ))
       val type_analysis = new TypeFoldAnalysis(vars_analysis)
+      val disequality_analysis = new DisequalityAnalysis(new IdAnalysis())
       val cvec_analysis = new CVecAnalysis(
           type_analysis,
-          vars_analysis
+          vars_analysis,
+          disequality_analysis
       )
       val egraph = EGraph()
       egraph.addAnalysis(cvec_analysis)

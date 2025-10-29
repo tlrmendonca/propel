@@ -12,7 +12,7 @@ import propel.evaluator.egraph.EClass.Id
   * [[]]
   * Goal: Identify nodes that represent variables.
   */
-class DisequalityAnalysis() extends Analysis {
+class DisequalityAnalysis(id_analysis: IdAnalysis) extends Analysis {
   /**
     * [[Data]] set as [[Boolean]].
     */
@@ -25,7 +25,7 @@ class DisequalityAnalysis() extends Analysis {
   type GlobalData = Boolean
   var global_data = false
 
-  val dependencies = scala.List()
+  val dependencies = scala.List(id_analysis)
 
 
   /**
@@ -49,6 +49,15 @@ class DisequalityAnalysis() extends Analysis {
     * @return
     */
   def merge(data1: Data, data2: Data): Data = {
+    val ids = preMergeData(id_analysis).asInstanceOf[(EClass.Id, EClass.Id)]
+    this.eclass_data(ids._1).foreach(diseq_id =>
+      if diseq_id == ids._2 then
+        global_data = true // inconsistency found
+    )
+    this.eclass_data(ids._2).foreach(diseq_id =>
+      if diseq_id == ids._1 then
+        global_data = true // inconsistency found
+    )
     return data1.union(data2)
   }
   
@@ -86,22 +95,13 @@ class DisequalityAnalysis() extends Analysis {
     * Goal: Check any insconsistencies are found in the egraph.
     */
   def is_consistent[G](egraph: G)(using EGraphOps[G]): Boolean = {
-    egraph.eclasses.foreach(eclass => 
-      val eclass_id = eclass.id
-      val diseq_set = this.getData(eclass_id).get
-
-      if diseq_set
-        .map(id => egraph.find(EClass(id)).id) // map each id in diseq_set to its canonical id
-        .contains(eclass_id) // if eclass is disequal to itself
-        then
-        return false // inconsistency found
-    )
+    return global_data
   }
 
   // NOTE: This is a hack to get rid of an error ... this doesn't do anything but needs to be implemented by default
   override def operations(op: Op, ids: Option[Seq[EClass.Id]] = None): Option[Function1[Seq[Data], Data]] = {
     op match {
-      case _ => Some(args => { println(s"DisequalityAnalysis operation is empty, continuing ..."); true })
+      case _ => None
     }
   }
 }
