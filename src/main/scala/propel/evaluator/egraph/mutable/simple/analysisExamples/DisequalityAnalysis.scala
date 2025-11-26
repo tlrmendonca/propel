@@ -50,6 +50,7 @@ class DisequalityAnalysis(id_analysis: IdAnalysis) extends Analysis {
     */
   def merge(data1: Data, data2: Data): Data = {
     val ids = preMergeData(id_analysis).asInstanceOf[(EClass.Id, EClass.Id)]
+    // TODO: check which list is shorter to run the foreach on that one (not both)
     this.eclass_data(ids._1).foreach(diseq_id =>
       if diseq_id == ids._2 then
         global_data = true // inconsistency found

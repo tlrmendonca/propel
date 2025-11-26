@@ -22,7 +22,8 @@ import propel.dsl.impl.Checked.check
 class CVecAnalysis(
     type_analysis: TypeFoldAnalysis,
     vars_analysis: VarsAnalysis,
-    disequality_analysis: DisequalityAnalysis
+    disequality_analysis: DisequalityAnalysis,
+    expr_extractor_analysis: ExprExtractorAnalysis
 ) extends Analysis {
     /**
       * [[Data]] set as [[Seq<EClass.Id>]] to refer to other classes.
@@ -33,7 +34,7 @@ class CVecAnalysis(
     type GlobalData = Boolean // not relevant now
     var global_data = false
 
-    val dependencies = List(type_analysis, vars_analysis, disequality_analysis)
+    val dependencies = List(type_analysis, vars_analysis, disequality_analysis, expr_extractor_analysis)
 
     private val CVEC_SIZE = 5
 
@@ -236,6 +237,7 @@ class CVecAnalysis(
     def modify[G](egraph: G, id: EClass.Id)(using EGraphOps[G]): Unit = {
         val cur_cvec = this.getData(id).get
         val diseq_set = disequality_analysis.getData(id).get
+        // TODO: optimize this loop to avoid checking all eclasses, perhaps by keeping a set of already compared ids or perhaps a best effort approach
         // compare cur_cvec to all other cvecs. those that are different call disequality_analysis.disunion
         eclass_data.foreach{ case (other_id, other_cvec) =>
             // 3 conditions: not already in disequality set, not same id, different cvecs
@@ -257,5 +259,29 @@ class CVecAnalysis(
       */
     def is_consistent[G](egraph: G)(using EGraphOps[G]): Boolean = {
         return disequality_analysis.is_consistent(egraph)
+    }
+
+    /**
+      * Goal: Return a list of pairs of EClass ids that are potentially equal (all but the ones we know are disequal).
+      * Run them thru the extractor to get expressions for clarity purposes.
+      */
+    def conjecture_lemmas() : Set[(String, String)] = {
+        // TODO: group by cvec and propose the combinations inside each group
+        val lemmas = MutableSet[(String, String)]()
+        // for each pair of eclasses, if they are not disequal, add to lemmas
+        val eclass_ids = eclass_data.keys.toSeq
+        for (i <- 0 until eclass_ids.length) {
+            for (j <- i + 1 until eclass_ids.length) {
+                val id1 = eclass_ids(i)
+                val id2 = eclass_ids(j)
+                if (!disequality_analysis.getData(id1).get.contains(id2)) {
+                    // not disequal -> add to lemmas
+                    val expr1 = expr_extractor_analysis.getData(id1).get._1
+                    val expr2 = expr_extractor_analysis.getData(id2).get._1
+                    lemmas.add((expr1, expr2))
+                }
+            }
+        }
+        return lemmas.toSet
     }
 }

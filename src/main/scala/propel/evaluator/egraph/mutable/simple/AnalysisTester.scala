@@ -36,6 +36,13 @@ object AnalysisTester {
       |""".stripMargin)
   }
 
+  def printConjecturedLemmas[G](egraph: G, analysis: CVecAnalysis)(using EGraphOps[G]): Unit = {
+    println("\nConjectured Lemmas based on CVec Analysis:")
+    analysis.conjecture_lemmas().foreach { case (e1, e2) =>
+      println(s"  ${e1.padTo(20, ' ')}  ==  ${e2.padTo(20, ' ')}")
+    }
+  }
+
   /**
     * Goals: 
     * 1. TBD
@@ -132,7 +139,8 @@ object AnalysisTester {
       val cvec_analysis = new CVecAnalysis(
           type_analysis,
           vars_analysis,
-          disequality_analysis
+          disequality_analysis,
+          new ExprExtractorAnalysis()
       )
       val egraph = EGraph()
       egraph.addAnalysis(cvec_analysis)
@@ -224,6 +232,7 @@ object AnalysisTester {
           printEGraphState(egraph.eclasses, cvec_analysis, "After adding second level operations:")
           // ^ search for cvecs of the classes pow2(+(x,y)) and +(+(pow2(x),*(*(x,y),2)),pow2(y))
 
+          printConjecturedLemmas(egraph, cvec_analysis)
           printSimilarExpressions(egraph, op2, op5, cvec_analysis)
 
         case "4" =>
@@ -254,6 +263,8 @@ object AnalysisTester {
           val right = egraph.add(rightn)
 
           printEGraphState(egraph.eclasses, cvec_analysis, "Division simplification edge case:")
+          printConjecturedLemmas(egraph, cvec_analysis)
+
           val exp1 = ExpressionExtractor.extract(egraph, left)
           val exp2 = ExpressionExtractor.extract(egraph, right)
           printSimilarExpressions(egraph, left, right, cvec_analysis)
