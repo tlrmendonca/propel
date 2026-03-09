@@ -50,8 +50,8 @@ object AnalysisTester {
   def testTypeFold(): Unit = {
     import EGraph.EGraphOps
 
-    val vars_analysis = new VarsAnalysis(MutableHashMap())
-    val type_fold_analysis = new TypeFoldAnalysis(vars_analysis)
+    val vars_analysis = new SimpleVarsAnalysis(MutableHashMap())
+    val type_fold_analysis = new TypeAnalysis(vars_analysis)
 
     val egraph = EGraph()
     egraph.addAnalysis(type_fold_analysis)
@@ -95,8 +95,8 @@ object AnalysisTester {
   def testVarsAnalysis(): Unit = {
     import EGraph.EGraphOps
 
-    val varList = MutableHashMap("x" -> LType.Number, "y" -> LType.Number, "s" -> LType.String)
-    val vars_analysis = new VarsAnalysis(varList)
+    val varList = MutableHashMap("x" -> Type.Nat, "y" -> Type.Nat, "s" -> Type.Boolean)
+    val vars_analysis = new SimpleVarsAnalysis(varList)
 
     val egraph = EGraph()
     egraph.addAnalysis(vars_analysis)
@@ -130,11 +130,11 @@ object AnalysisTester {
       
       val selection = scala.io.StdIn.readLine("Enter your choice (1-4): ").trim
       
-      val vars_analysis = new VarsAnalysis(MutableHashMap(
-              "x" -> LType.Number,
-              "y" -> LType.Number
+      val vars_analysis = new SimpleVarsAnalysis(MutableHashMap(
+              "x" -> Type.Nat,
+              "y" -> Type.Nat
           ))
-      val type_analysis = new TypeFoldAnalysis(vars_analysis)
+      val type_analysis = new TypeAnalysis(vars_analysis)
       val disequality_analysis = new DisequalityAnalysis(new IdAnalysis())
       val cvec_analysis = new CVecAnalysis(
           type_analysis,
@@ -271,32 +271,34 @@ object AnalysisTester {
           // Expected: equivalent for all x except x = 1 (division by zero)
 
         case "5" | _ =>
-          val constantENodes @ Seq(sn, vn, ln) = Seq(
-            ENode(Operator("s")),
-            ENode(Operator("v")),
-            ENode(Operator("l")),
+          // Since Lists and Strings are no longer in SimpleLanguage, 
+          // we test Boolean and mixed Nat/Boolean scenarios here.
+          val varList = MutableHashMap(
+            "b1" -> Type.Boolean,
+            "b2" -> Type.Boolean,
+            "n1" -> Type.Nat
           )
-          val constantEClasses @ Seq(s, v, l) =
-            constantENodes.map(egraph.add)
-          // ^ verify that the cvecs are created according to type
+          
+          val b1n = ENode(Operator("b1"))
+          val b2n = ENode(Operator("b2"))
+          val n1n = ENode(Operator("n1"))
+          
+          val b1 = egraph.add(b1n)
+          val b2 = egraph.add(b2n)
+          val n1 = egraph.add(n1n)
 
-          printEGraphState(egraph.eclasses, cvec_analysis, "Basic nodes added:")
+          printEGraphState(egraph.eclasses, cvec_analysis, "Boolean and Nat nodes added:")
 
-          val op1n = ENode(Operator("concat"), Seq(s, v))
+          // isZero(n1)
+          val op1n = ENode(Operator("isZero"), Seq(n1))
           val op1 = egraph.add(op1n)
-          // ^ verify concatenation of strings in cvecs works fine
 
-          printEGraphState(egraph.eclasses, cvec_analysis, "Concat s and v:")
+          printEGraphState(egraph.eclasses, cvec_analysis, "After adding isZero(n1):")
 
-          egraph.union(s, v)
-
-          printEGraphState(egraph.eclasses, cvec_analysis, "After unioning before rebuild s and v:")
-
+          egraph.union(b1, op1)
           egraph.rebuild()
-          // ^ verify that the cvecs unify
-          // ^ verify that the cvec for op1 is updated
 
-          printEGraphState(egraph.eclasses, cvec_analysis, "After rebuild:")
+          printEGraphState(egraph.eclasses, cvec_analysis, "After union(b1, isZero(n1)):")
       }
       val continue = scala.io.StdIn.readLine("Run another example? (y/n): ")
       if (continue != "y") {
@@ -309,7 +311,16 @@ object AnalysisTester {
   // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester" 
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
+    
+    println("\n=== Testing Type Analysis ===")
+    testTypeFold()
+    
+    println("\n=== Testing Vars Analysis ===")
+    testVarsAnalysis()
+    
+    println("\n=== Testing CVec Analysis ===")
     testCVecAnalysis()
+    
     println("AnalysisTester completed.")
   }
 }

@@ -2,9 +2,8 @@ package propel.evaluator.egraph.mutable.simple.analysisExamples
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
-import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, Op, LType}
-import propel.evaluator.egraph.mutable.simple.LType.*
-import propel.evaluator.egraph.mutable.simple.Op.*
+import propel.evaluator.egraph.mutable.simple.*
+import propel.evaluator.egraph.mutable.simple.Type.*
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 import propel.evaluator.egraph.EClass.Id
 import propel.evaluator.egraph.ENode
@@ -14,7 +13,7 @@ import scala.compiletime.ops.string
   * [[]]
   * Goal: Identify nodes that represent variables.
   */
-class ExprExtractorAnalysis(varList: MutableHashMap[String, LType] = MutableHashMap()) extends Analysis {
+class ExprExtractorAnalysis(varList: MutableHashMap[String, Type] = MutableHashMap()) extends Analysis {
   /**
     * [[Data]] set as [[String]].
     */

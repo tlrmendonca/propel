@@ -2,9 +2,10 @@ package propel.evaluator.egraph.mutable.simple.analysisExamples
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
-import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, Op, LType}
-import propel.evaluator.egraph.mutable.simple.LType.*
-import propel.evaluator.egraph.mutable.simple.Op.*
+import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
+import propel.evaluator.egraph.mutable.simple.*
+import propel.evaluator.egraph.mutable.simple.Type.*
+import propel.evaluator.egraph.mutable.simple.ConstructorName.*
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 import propel.evaluator.egraph.EClass.Id
 
@@ -50,12 +51,16 @@ class DisequalityAnalysis(id_analysis: IdAnalysis) extends Analysis {
     */
   def merge(data1: Data, data2: Data): Data = {
     val ids = preMergeData(id_analysis).asInstanceOf[(EClass.Id, EClass.Id)]
-    // TODO: check which list is shorter to run the foreach on that one (not both)
-    this.eclass_data(ids._1).foreach(diseq_id =>
+    
+    // Safety check: ensure both IDs exist in eclass_data
+    val set1 = eclass_data.getOrElse(ids._1, Set.empty[EClass.Id])
+    val set2 = eclass_data.getOrElse(ids._2, Set.empty[EClass.Id])
+
+    set1.foreach(diseq_id =>
       if diseq_id == ids._2 then
         global_data = true // inconsistency found
     )
-    this.eclass_data(ids._2).foreach(diseq_id =>
+    set2.foreach(diseq_id =>
       if diseq_id == ids._1 then
         global_data = true // inconsistency found
     )

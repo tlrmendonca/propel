@@ -1,7 +1,7 @@
 package propel.evaluator.egraph
 
 import propel.evaluator.egraph.{EClass, ENode, Language}
-import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, Op}
+import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps}
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 
 

@@ -2,8 +2,8 @@ package propel.evaluator.egraph.mutable.simple.analysisExamples
 
 import propel.evaluator.egraph.*
 import propel.evaluator.egraph.mutable.UnionFind
-import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, Op, LType}
-import propel.evaluator.egraph.mutable.simple.LType.*
+import propel.evaluator.egraph.mutable.simple.{EGraph, EGraphOps, Op, Type}
+import propel.evaluator.egraph.mutable.simple.Type.*
 import propel.evaluator.egraph.mutable.simple.Op.*
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 import propel.evaluator.egraph.EClass.Id
@@ -12,7 +12,7 @@ import propel.evaluator.egraph.EClass.Id
   * [[]]
   * Goal: Identify nodes that represent variables.
   */
-class IdAnalysis(varList: MutableHashMap[String, LType] = MutableHashMap()) extends Analysis {
+class IdAnalysis(varList: MutableHashMap[String, Type] = MutableHashMap()) extends Analysis {
   /**
     * [[Data]] set as [[Eclass.Id]].
     */

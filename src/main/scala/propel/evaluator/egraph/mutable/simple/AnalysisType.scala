@@ -20,25 +20,25 @@ enum LType:
 
 // Language
 // NOTE: Values are a subset of Expr, i.e., those that cannot be simplified further
-enum Value:
+enum LValue:
     case NumValue(value: Double)
     case StrValue(value: String)
     case BoolValue(value: Boolean)
-    case ListValue(elements: Seq[Value])
+    case ListValue(elements: Seq[LValue])
     override def toString(): String = this match
         case NumValue(value) => s"Num($value)"
         case StrValue(value) => s"Str($value)"
         case BoolValue(value) => s"Bool($value)"
         case ListValue(elements) => s"List(${elements.mkString(", ")})"
 
-enum Expr:
+enum LExpr:
     // first-order
-    case ValueExpr(value: Value)
-    case ListExpr(elements: Seq[Expr])
+    case ValueExpr(value: LValue)
+    case ListExpr(elements: Seq[LExpr])
     case Var(name: String)
-    case FuncCall(name: Op, args: Seq[Expr])
+    case FuncCall(name: Op, args: Seq[LExpr])
     // higher-order
-    case FuncDef(name: String, args: Seq[(String, LType)], body: Expr)
+    case FuncDef(name: String, args: Seq[(String, LType)], body: LExpr)
     // impossible
     case Broken
     override def toString(): String = this match
@@ -49,20 +49,20 @@ enum Expr:
         case FuncDef(name, args, body) => s"FuncDef($name, ${args.map(_._1).mkString(", ")}, $body)"
         case Broken => "Broken" 
 
-object Value:
-    def getValueNum(value: Value): Double = value match
+object LValue:
+    def getValueNum(value: LValue): Double = value match
         case NumValue(value) => value
         case _ => throw new IllegalArgumentException("Expected NumValue, got: " + value)
 
-    def getValueStr(value: Value): String = value match
+    def getValueStr(value: LValue): String = value match
         case StrValue(value) => value
         case _ => throw new IllegalArgumentException("Expected StrValue, got: " + value)
 
-    def getValueBool(value: Value): Boolean = value match
+    def getValueBool(value: LValue): Boolean = value match
         case BoolValue(value) => value
         case _ => throw new IllegalArgumentException("Expected BoolValue, got: " + value)
     
-    def getElementsList(value: Value): Seq[Value] = value match
+    def getElementsList(value: LValue): Seq[LValue] = value match
         case ListValue(elements) => elements
         case _ => throw new IllegalArgumentException("Expected ListValue, got: " + value)
 
