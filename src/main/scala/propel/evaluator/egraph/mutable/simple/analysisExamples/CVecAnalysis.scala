@@ -52,76 +52,56 @@ class CVecAnalysis(
         // Note: arity and typing are assumed to be correct (checked in TypeAnalysis)
         assert(children_ids.isDefined, printWarning("CVecAnalysis operations called with undefined children_ids"))
         val children_types : Seq[type_analysis.Data] = children_ids.get.map(id => type_analysis.getData(id).get)
-        // Use of Seq here is a workaround because I was lazy to do it properly before. A refactor is in order.
-        // NOTE: What happens is this operation should work with Data, but I for some reason wrote the call site to call this operation
-        // on every 2 elements of data by hand, while what should happen is receiving the full Seq[Data] here and applying it to each
-        // pair, trio, whatever the arity is, case by case.
+        
         op match {
-            case PLUS => Some((a : Seq[Data]) => { val args = a(0); children_types match 
-                case Seq(Type.Nat, Type.Nat) => {
-                    // Nat + Nat
+            case PLUS => Some(args => {
+                val vals1 = args(0); val vals2 = args(1)
+                (vals1 zip vals2).map { (v1, v2) =>
                     def fromNat(v: Value): Int = v match
-                        case ValueConstructor(Zero, _) => 0
-                        case ValueConstructor(Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
                         case _ => 0
-                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(Zero, Seq()) else ValueConstructor(Succ, Seq(toNat(i - 1)))
-                    
-                    Seq(toNat(fromNat(args(0)) + fromNat(args(1))))
+                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    toNat(fromNat(v1) + fromNat(v2))
                 }
-                case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq(ValueConstructor(Zero, Seq()))
             })
-            case MINUS | MULT | DIV | POW2 | SQRT => Some((a : Seq[Data]) => { val args = a(0); children_types match 
-                case Seq(Type.Nat, Type.Nat) => {
+            case MINUS | MULT | DIV | POW2 | SQRT => Some(args => {
+                val vals1 = args(0)
+                if (op == POW2 || op == SQRT) {
+                  vals1.map { v1 =>
                     def fromNat(v: Value): Int = v match
-                        case ValueConstructor(Zero, _) => 0
-                        case ValueConstructor(Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
                         case _ => 0
-                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(Zero, Seq()) else ValueConstructor(Succ, Seq(toNat(i - 1)))
-                    
-                    val val1 = fromNat(args(0))
-                    val val2 = fromNat(args(1))
-                    
+                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    val val1 = fromNat(v1)
                     val res = op match
-                        case MINUS => Math.max(0, val1 - val2)
-                        case MULT  => val1 * val2
-                        case DIV   => if (val2 == 0) 0 else val1 / val2
-                        case POW2  => Math.pow(val1, 2).toInt
-                        case _     => 0 // SQRT not easily implemented for Nat
-                    
-                    Seq(toNat(res))
-                }
-                case Seq(Type.Nat) if op == POW2 || op == SQRT => {
-                    def fromNat(v: Value): Int = v match
-                        case ValueConstructor(Zero, _) => 0
-                        case ValueConstructor(Succ, Seq(sub)) => 1 + fromNat(sub)
-                        case _ => 0
-                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(Zero, Seq()) else ValueConstructor(Succ, Seq(toNat(i - 1)))
-                    
-                    val val1 = fromNat(args(0))
-                    val res = op match
-                        case POW2 => Math.pow(val1, 2).toInt
+                        case POW2 => val1 * val1
                         case SQRT => Math.sqrt(val1).toInt
                         case _ => 0
-                    Seq(toNat(res))
+                    toNat(res)
+                  }
+                } else {
+                  val vals2 = args(1)
+                  (vals1 zip vals2).map { (v1, v2) =>
+                    def fromNat(v: Value): Int = v match
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case _ => 0
+                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    val val1 = fromNat(v1); val val2 = fromNat(v2)
+                    val res = op match
+                        case MINUS => Math.max(0, val1 - val2)
+                        case MULT => val1 * val2
+                        case DIV => if (val2 == 0) 0 else val1 / val2
+                        case _ => 0
+                    toNat(res)
+                  }
                 }
-                case _ => printWarning(s"Don't know how to $op with args (${args.mkString(", ")})"); Seq(ValueConstructor(Zero, Seq()))
             })
             case UNKNOWN => Some(args => { 
-                val opStr = op.toString
-                // Handle isZero and multiplication by 2
-                if (opStr == "isZero") {
-                    val val0 = args(0)(0)
-                    val res = val0 match
-                        case ValueConstructor(Zero, _) => ValueConstructor(True, Seq())
-                        case _ => ValueConstructor(False, Seq())
-                    Seq(res)
-                } else if (opStr == "2") {
-                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(Zero, Seq()) else ValueConstructor(Succ, Seq(toNat(i - 1)))
-                    Seq(toNat(2))
-                } else {
-                    printWarning(s"CVEC: Unknown operator: $op with args (${args.mkString(", ")})")
-                    Seq(ValueConstructor(Zero, Seq()))
-                }
+                // Placeholder, handled by make() for UNKNOWN names
+                Seq.fill(CVEC_SIZE)(ValueConstructor(ConstructorName.Zero, Seq()))
             })
         }
     }
@@ -131,15 +111,15 @@ class CVecAnalysis(
         case Type.Nat => {
             try {
                 val n = op.toInt
-                def toNat(i: Int): Value = if (i <= 0) ValueConstructor(Zero, Seq()) else ValueConstructor(Succ, Seq(toNat(i - 1)))
+                def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
                 toNat(n)
             } catch {
-                case _: Exception => ValueConstructor(Zero, Seq())
+                case _: Exception => ValueConstructor(ConstructorName.Zero, Seq())
             }
         }
         case Type.Boolean => {
-            if (op == "true") ValueConstructor(True, Seq())
-            else ValueConstructor(False, Seq())
+            if (op == "true") ValueConstructor(ConstructorName.True, Seq())
+            else ValueConstructor(ConstructorName.False, Seq())
         }
         case _ => throw new Exception("Unknown type in cvec_analysis: " + xc_type)
       }
@@ -175,8 +155,9 @@ class CVecAnalysis(
             // check type
             val value_of : Value = check_type(xc_type, x.op.toString)
 
-            eclass_data.update(xc.id, Seq.fill(CVEC_SIZE)(value_of)) // e.g. "2" -> Seq(2, 2, 2, 2, 2, 2, 2, 2, 2, 2) because it always means 2
-            return Seq.fill(CVEC_SIZE)(value_of)
+            val res = Seq.fill(CVEC_SIZE)(value_of)
+            eclass_data.update(xc.id, res) // e.g. "2" -> Seq(2, 2, 2, 2, 2, 2, 2, 2, 2, 2) because it always means 2
+            return res
         }
 
         // lastly: not var and not const -> expecting an operation between classes (i.e. a function application)
@@ -184,39 +165,140 @@ class CVecAnalysis(
         // build cvec one position at a time by applying the operation to each value from the referenced classes
         val children = x.refs.map(cc => egraph.find(cc)) // canonicalized children
         val children_values = children.map(c => eclass_data.getOrElse(c.id, throw new Exception("No data found for child during cvec generation: " + c.id)))
-        var cvec = Seq.empty[Value]
-        for (i <- 0 until CVEC_SIZE) {
-            // Note: typing is assumed to be correct (checked in TypeAnalysis)
-            val args = children_values.map(_.apply(i)) // select i-th of each
-            // println(s"Generating cvec for $x, args: ${args.mkString(", ")}")
-            val fo = operations(
-                Op.fromString(x.op.toString),
-                Some(children.map(_.id))
-            )
-            assert(fo.isDefined, printWarning(s"WARNING: Undefined/unknown function during cvec generation: " + x.op))
-            val f = fo.get
-
-            val res = f(Seq(args)) // res should be a Seq[Value] (Data)
-            // assert(res(0) != Unit, printWarning(s"Function returned null during cvec generation: " + x.op))
-            cvec = cvec :+ res(0)
+        
+        val opStr = x.op.toString
+        val res: Data = opStr match {
+            case "true" => Seq.fill(CVEC_SIZE)(ValueConstructor(ConstructorName.True, Seq()))
+            case "false" => Seq.fill(CVEC_SIZE)(ValueConstructor(ConstructorName.False, Seq()))
+            case "isZero" => 
+                children_values(0).map { v =>
+                    v match
+                        case ValueConstructor(ConstructorName.Zero, _) => ValueConstructor(ConstructorName.True, Seq())
+                        case _ => ValueConstructor(ConstructorName.False, Seq())
+                }
+            case "sqrt" =>
+                children_values(0).map { v =>
+                    def fromNat(v: Value): Int = v match
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case _ => 0
+                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    toNat(Math.sqrt(fromNat(v)).toInt)
+                }
+            case "lessThan" =>
+                (children_values(0) zip children_values(1)).map { (v1, v2) =>
+                    def fromNat(v: Value): Int = v match
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case _ => 0
+                    if (fromNat(v1) < fromNat(v2)) ValueConstructor(ConstructorName.True, Seq()) else ValueConstructor(ConstructorName.False, Seq())
+                }
+            case "greaterThan" =>
+                (children_values(0) zip children_values(1)).map { (v1, v2) =>
+                    def fromNat(v: Value): Int = v match
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case _ => 0
+                    if (fromNat(v1) > fromNat(v2)) ValueConstructor(ConstructorName.True, Seq()) else ValueConstructor(ConstructorName.False, Seq())
+                }
+            case "equals" =>
+                (children_values(0) zip children_values(1)).map { (v1, v2) =>
+                    def fromNat(v: Value): Int = v match
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case _ => 0
+                    if (fromNat(v1) == fromNat(v2)) ValueConstructor(ConstructorName.True, Seq()) else ValueConstructor(ConstructorName.False, Seq())
+                }
+            case "and" =>
+                (children_values(0) zip children_values(1)).map { (v1, v2) =>
+                    val b1 = v1 match { case ValueConstructor(ConstructorName.True, _) => true; case _ => false }
+                    val b2 = v2 match { case ValueConstructor(ConstructorName.True, _) => true; case _ => false }
+                    if (b1 && b2) ValueConstructor(ConstructorName.True, Seq()) else ValueConstructor(ConstructorName.False, Seq())
+                }
+            case "or" =>
+                (children_values(0) zip children_values(1)).map { (v1, v2) =>
+                    val b1 = v1 match { case ValueConstructor(ConstructorName.True, _) => true; case _ => false }
+                    val b2 = v2 match { case ValueConstructor(ConstructorName.True, _) => true; case _ => false }
+                    if (b1 || b2) ValueConstructor(ConstructorName.True, Seq()) else ValueConstructor(ConstructorName.False, Seq())
+                }
+            case "not" =>
+                children_values(0).map { v =>
+                    val b = v match { case ValueConstructor(ConstructorName.True, _) => true; case _ => false }
+                    if (!b) ValueConstructor(ConstructorName.True, Seq()) else ValueConstructor(ConstructorName.False, Seq())
+                }
+            case "max" =>
+                (children_values(0) zip children_values(1)).map { (v1, v2) =>
+                    def fromNat(v: Value): Int = v match
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case _ => 0
+                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    toNat(Math.max(fromNat(v1), fromNat(v2)))
+                }
+            case "min" =>
+                (children_values(0) zip children_values(1)).map { (v1, v2) =>
+                    def fromNat(v: Value): Int = v match
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case _ => 0
+                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    toNat(Math.min(fromNat(v1), fromNat(v2)))
+                }
+            case "mod" =>
+                (children_values(0) zip children_values(1)).map { (v1, v2) =>
+                    def fromNat(v: Value): Int = v match
+                        case ValueConstructor(ConstructorName.Zero, _) => 0
+                        case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case _ => 0
+                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    val n2 = fromNat(v2)
+                    if (n2 == 0) ValueConstructor(ConstructorName.Zero, Seq()) else toNat(fromNat(v1) % n2)
+                }
+            case "2" =>
+                Seq.fill(CVEC_SIZE) {
+                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    toNat(2)
+                }
+            case _ =>
+                val fo = operations(
+                    Op.fromString(x.op.toString),
+                    Some(children.map(_.id))
+                )
+                assert(fo.isDefined, printWarning(s"WARNING: Undefined/unknown function during cvec generation: " + x.op))
+                val f = fo.get
+                f(children_values)
         }
-        eclass_data.update(xc.id, cvec)
-        return cvec
+
+        eclass_data.update(xc.id, res)
+        return res
     }
 
     // TODO: pass CVEC_SIZE as a parameter
     private def generate_cvec(t: Type): Seq[Value] = {
         t match {
             case Type.Nat => Seq.fill(CVEC_SIZE)({
-                val n = util.Random.between(0, 10)
-                def toNat(i: Int): Value = if (i <= 0) ValueConstructor(Zero, Seq()) else ValueConstructor(Succ, Seq(toNat(i - 1)))
+                val n = util.Random.between(0, 50)
+                def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
                 toNat(n)
             })
             case Type.Boolean => {
-                val seq = Seq(true, false) ++ Seq.fill(CVEC_SIZE - 2)(scala.util.Random.nextBoolean())
-                seq.map(b => if (b) ValueConstructor(True, Seq()) else ValueConstructor(False, Seq()))
+                Seq.fill(CVEC_SIZE)(scala.util.Random.nextBoolean())
+                  .map(b => if (b) ValueConstructor(ConstructorName.True, Seq()) else ValueConstructor(ConstructorName.False, Seq()))
             }
             case _ => throw new Exception("Unknown type in vector generation: " + t)
+        }
+    }
+
+    private def is_not_operation(x: ENode): Boolean = {
+        val op = x.op.toString
+        if (op == "true" || op == "false") return true
+        // Check if it's a number string
+        if (op.forall(_.isDigit)) return true
+        
+        val operation = Op.fromString(op)
+        operation match {
+            case Op.UNKNOWN => return true // not an operation
+            case _ => return false
         }
     }
 
@@ -226,19 +308,6 @@ class CVecAnalysis(
       val xc_data = vars_analysis.getData(xc.id).get // data is Option[Type]
       
       return xc_data.isDefined
-    }
-
-    // op is a number
-    private def is_not_operation(x: ENode): Boolean = {
-        val op = x.op.toString
-        // Check if it's a number string
-        if (op.forall(_.isDigit)) return true
-        
-        val operation = Op.fromString(op)
-        operation match {
-            case Op.UNKNOWN => return true // not an operation
-            case _ => return false
-        }
     }
 
     /**

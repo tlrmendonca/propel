@@ -97,7 +97,17 @@ val function_rules: Map[FunCall, Expr] = Map(
 val function_types: Map[String, Type] = Map(
   "twice" -> Function(Seq(Nat), Nat),
   "half" -> Function(Seq(Nat), Nat),
-  "isZero" -> Function(Seq(Nat), Boolean)
+  "isZero" -> Function(Seq(Nat), Boolean),
+  "sqrt" -> Function(Seq(Nat), Nat),
+  "lessThan" -> Function(Seq(Nat, Nat), Boolean),
+  "greaterThan" -> Function(Seq(Nat, Nat), Boolean),
+  "equals" -> Function(Seq(Nat, Nat), Boolean),
+  "and" -> Function(Seq(Boolean, Boolean), Boolean),
+  "or" -> Function(Seq(Boolean, Boolean), Boolean),
+  "not" -> Function(Seq(Boolean), Boolean),
+  "max" -> Function(Seq(Nat, Nat), Nat),
+  "min" -> Function(Seq(Nat, Nat), Nat),
+  "mod" -> Function(Seq(Nat, Nat), Nat)
 )
 
 // returns the evaluated value of an expression

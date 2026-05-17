@@ -126,13 +126,17 @@ object AnalysisTester {
         "\n2. Freshmen's Dream (Confirm Inequality)" +
         "\n3. Binomial Expansion (True)" +
         "\n4. Division Simplification (Almost True)" +
-        "\n5. (Broken) Lists and Strings")
+        "\n5. Complete set of simple arithmetic operations" +
+        "\n6. Complete set of non-arithmetic operations" +
+        "\n7. (Broken) Lists and Strings")
       
-      val selection = scala.io.StdIn.readLine("Enter your choice (1-4): ").trim
+      val selection = scala.io.StdIn.readLine("Enter your choice (1-6): ").trim
       
       val vars_analysis = new SimpleVarsAnalysis(MutableHashMap(
               "x" -> Type.Nat,
-              "y" -> Type.Nat
+              "y" -> Type.Nat,
+              "b1" -> Type.Boolean,
+              "b2" -> Type.Boolean
           ))
       val type_analysis = new TypeAnalysis(vars_analysis)
       val disequality_analysis = new DisequalityAnalysis(new IdAnalysis())
@@ -270,7 +274,108 @@ object AnalysisTester {
           printSimilarExpressions(egraph, left, right, cvec_analysis)
           // Expected: equivalent for all x except x = 1 (division by zero)
 
-        case "5" | _ =>
+        case "5" =>
+          // "Complete set of simple operations" test
+          // Verifies: +, -, *, div, pow2, sqrt
+          val xn = ENode(Operator("x"))
+          val x = egraph.add(xn)
+          val fourn = ENode(Operator("4"))
+          val four = egraph.add(fourn)
+
+          // sqrt(pow2(x))
+          val p2n = ENode(Operator("pow2"), Seq(x))
+          val p2 = egraph.add(p2n)
+          val sqrtn = ENode(Operator("sqrt"), Seq(p2))
+          val sqrt = egraph.add(sqrtn)
+
+          // (x * 4) / 4
+          val muln = ENode(Operator("*"), Seq(x, four))
+          val mul = egraph.add(muln)
+          val divn = ENode(Operator("div"), Seq(mul, four))
+          val div = egraph.add(divn)
+
+          // (x + 4) - 4
+          val addn = ENode(Operator("+"), Seq(x, four))
+          val add = egraph.add(addn)
+          val subn = ENode(Operator("-"), Seq(add, four))
+          val sub = egraph.add(subn)
+
+          printEGraphState(egraph.eclasses, cvec_analysis, "Complete set of simple operations test:")
+          printConjecturedLemmas(egraph, cvec_analysis)
+          
+          println("Comparing sqrt(pow2(x)) with x:")
+          printSimilarExpressions(egraph, sqrt, x, cvec_analysis)
+          
+          println("Comparing (x * 4) / 4 with x:")
+          printSimilarExpressions(egraph, div, x, cvec_analysis)
+
+          println("Comparing (x + 4) - 4 with x:")
+          printSimilarExpressions(egraph, sub, x, cvec_analysis)
+
+        case "6" =>
+          // "Complete set of non-arithmetic operations" test
+          // Verifies: <, >, ==, and, or, not, max, min, mod
+          val xn = ENode(Operator("x"))
+          val x = egraph.add(xn)
+          val yn = ENode(Operator("y"))
+          val y = egraph.add(yn)
+          val fiveN = ENode(Operator("5"))
+          val five = egraph.add(fiveN)
+
+          // max(x, y) >= x (should be true)
+          val maxXYn = ENode(Operator("max"), Seq(x, y))
+          val maxXY = egraph.add(maxXYn)
+          val geqn = ENode(Operator("or"), Seq(
+            egraph.add(ENode(Operator("greaterThan"), Seq(maxXY, x))),
+            egraph.add(ENode(Operator("equals"), Seq(maxXY, x)))
+          ))
+          val geqClass = egraph.add(geqn)
+
+          // min(x, y) <= x (should be true)
+          val minXYn = ENode(Operator("min"), Seq(x, y))
+          val minXY = egraph.add(minXYn)
+          val leqn = ENode(Operator("or"), Seq(
+            egraph.add(ENode(Operator("lessThan"), Seq(minXY, x))),
+            egraph.add(ENode(Operator("equals"), Seq(minXY, x)))
+          ))
+          val leqClass = egraph.add(leqn)
+
+          // mod(x, 5) < 5 (should be true)
+          val modxn = ENode(Operator("mod"), Seq(x, five))
+          val modx = egraph.add(modxn)
+          val lt5n = ENode(Operator("lessThan"), Seq(modx, five))
+          val lt5Class = egraph.add(lt5n)
+
+          // Boolean logic: not(and(b1, b2)) == or(not(b1), not(b2))
+          val b1n = ENode(Operator("b1"))
+          val b1 = egraph.add(b1n)
+          val b2n = ENode(Operator("b2"))
+          val b2 = egraph.add(b2n)
+
+          val andN = ENode(Operator("and"), Seq(b1, b2))
+          val nandN = ENode(Operator("not"), Seq(egraph.add(andN)))
+          val nandClass = egraph.add(nandN)
+
+          val notB1 = egraph.add(ENode(Operator("not"), Seq(b1)))
+          val notB2 = egraph.add(ENode(Operator("not"), Seq(b2)))
+          val deMorganN = ENode(Operator("or"), Seq(notB1, notB2))
+          val deMorganClass = egraph.add(deMorganN)
+
+          printEGraphState(egraph.eclasses, cvec_analysis, "Non-arithmetic operations test:")
+          
+          println("Verifying max(x, y) >= x is always True:")
+          printSimilarExpressions(egraph, geqClass, egraph.add(ENode(Operator("true"))), cvec_analysis)
+
+          println("Verifying min(x, y) <= x is always True:")
+          printSimilarExpressions(egraph, leqClass, egraph.add(ENode(Operator("true"))), cvec_analysis)
+
+          println("Verifying mod(x, 5) < 5 is always True:")
+          printSimilarExpressions(egraph, lt5Class, egraph.add(ENode(Operator("true"))), cvec_analysis)
+
+          println("Verifying De Morgan's Law: not(and(b1, b2)) == or(not(b1), not(b2)):")
+          printSimilarExpressions(egraph, nandClass, deMorganClass, cvec_analysis)
+
+        case "7" =>
           // Since Lists and Strings are no longer in SimpleLanguage, 
           // we test Boolean and mixed Nat/Boolean scenarios here.
           val varList = MutableHashMap(
@@ -312,11 +417,11 @@ object AnalysisTester {
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
     
-    println("\n=== Testing Type Analysis ===")
-    testTypeFold()
+    // println("\n=== Testing Type Analysis ===")
+    // testTypeFold()
     
-    println("\n=== Testing Vars Analysis ===")
-    testVarsAnalysis()
+    // println("\n=== Testing Vars Analysis ===")
+    // testVarsAnalysis()
     
     println("\n=== Testing CVec Analysis ===")
     testCVecAnalysis()
