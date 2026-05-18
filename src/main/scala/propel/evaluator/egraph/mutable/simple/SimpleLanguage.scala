@@ -79,7 +79,7 @@ def SUCC(n: Expr): Expr = Constructor(Succ, Seq(n))
 val function_rules: Map[FunCall, Expr] = Map(
   // twice
   FunCall("twice", Seq(ZERO)) -> ZERO,
-  FunCall("twice", Seq(SUCC(X))) -> SUCC(SUCC(X)),
+  FunCall("twice", Seq(SUCC(X))) -> SUCC(SUCC(FunCall("twice", Seq(X)))),
   // half
   FunCall("half", Seq(ZERO)) -> ZERO,
   FunCall("half", Seq(SUCC(ZERO))) -> ZERO,
@@ -89,7 +89,9 @@ val function_rules: Map[FunCall, Expr] = Map(
   FunCall("isZero", Seq(SUCC(X))) -> FALSE,
 
   // misc -> not really function definitions anymore
-  FunCall("twice", Seq(FunCall("half", Seq(X)))) -> X
+  FunCall("twice", Seq(FunCall("half", Seq(X)))) -> X,
+  // half(twice(x))
+  FunCall("half", Seq(FunCall("twice", Seq(X)))) -> X
   // note: this should be found as a lemma, but is written explicitly
   // here for reference that this is a possibility
 )

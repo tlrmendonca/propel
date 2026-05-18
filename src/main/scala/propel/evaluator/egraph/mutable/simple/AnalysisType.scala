@@ -87,6 +87,16 @@ enum Op:
   case DIV
   case POW2
   case SQRT
+  case ISZERO
+  case LESSTHAN
+  case GREATERTHAN
+  case EQUALS
+  case AND
+  case OR
+  case NOT
+  case MAX
+  case MIN
+  case MOD
   case UNKNOWN
   // Debug: define toString
   override def toString(): String = this match
@@ -96,6 +106,16 @@ enum Op:
     case DIV => "DIV"
     case POW2 => "POW2"
     case SQRT => "SQRT"
+    case ISZERO => "ISZERO"
+    case LESSTHAN => "LESSTHAN"
+    case GREATERTHAN => "GREATERTHAN"
+    case EQUALS => "EQUALS"
+    case AND => "AND"
+    case OR => "OR"
+    case NOT => "NOT"
+    case MAX => "MAX"
+    case MIN => "MIN"
+    case MOD => "MOD"
     case UNKNOWN => "?"
 
 // ** Companion object for Op **
@@ -107,6 +127,16 @@ object Op:
     else if (s == "/" || s == "div") Op.DIV
     else if (s == "^" || s == "pow2") Op.POW2
     else if (s == "sqrt") Op.SQRT
+    else if (s == "isZero") Op.ISZERO
+    else if (s == "lessThan") Op.LESSTHAN
+    else if (s == "greaterThan") Op.GREATERTHAN
+    else if (s == "equals") Op.EQUALS
+    else if (s == "and") Op.AND
+    else if (s == "or") Op.OR
+    else if (s == "not") Op.NOT
+    else if (s == "max") Op.MAX
+    else if (s == "min") Op.MIN
+    else if (s == "mod") Op.MOD
     else Op.UNKNOWN
   }
 

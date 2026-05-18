@@ -1,6 +1,7 @@
-package propel.evaluator.egraph.mutable.simple
+package propel.evaluator.egraph.mutable.simple.tests
 
 import propel.evaluator.egraph.*
+import propel.evaluator.egraph.mutable.simple.*
 import propel.evaluator.egraph.mutable.simple.analysisExamples.*
 import collection.mutable.{Map as MutableMap, Set as MutableSet, HashMap as MutableHashMap}
 
