@@ -59,8 +59,9 @@ class CVecAnalysis(
                     def fromNat(v: Value): Int = v match
                         case ValueConstructor(ConstructorName.Zero, _) => 0
                         case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case ValueConstructor(ConstructorName.Pred, Seq(sub)) => -1 + fromNat(sub)
                         case _ => 0
-                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    def toNat(i: Int): Value = if (i == 0) ValueConstructor(ConstructorName.Zero, Seq()) else if (i > 0) ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1))) else ValueConstructor(ConstructorName.Pred, Seq(toNat(i + 1)))
                     toNat(fromNat(v1) + fromNat(v2))
                 }
             })
@@ -71,8 +72,9 @@ class CVecAnalysis(
                     def fromNat(v: Value): Int = v match
                         case ValueConstructor(ConstructorName.Zero, _) => 0
                         case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case ValueConstructor(ConstructorName.Pred, Seq(sub)) => -1 + fromNat(sub)
                         case _ => 0
-                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    def toNat(i: Int): Value = if (i == 0) ValueConstructor(ConstructorName.Zero, Seq()) else if (i > 0) ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1))) else ValueConstructor(ConstructorName.Pred, Seq(toNat(i + 1)))
                     val val1 = fromNat(v1)
                     val res = op match
                         case POW2 => val1 * val1
@@ -86,11 +88,12 @@ class CVecAnalysis(
                     def fromNat(v: Value): Int = v match
                         case ValueConstructor(ConstructorName.Zero, _) => 0
                         case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case ValueConstructor(ConstructorName.Pred, Seq(sub)) => -1 + fromNat(sub)
                         case _ => 0
-                    def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    def toNat(i: Int): Value = if (i == 0) ValueConstructor(ConstructorName.Zero, Seq()) else if (i > 0) ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1))) else ValueConstructor(ConstructorName.Pred, Seq(toNat(i + 1)))
                     val val1 = fromNat(v1); val val2 = fromNat(v2)
                     val res = op match
-                        case MINUS => Math.max(0, val1 - val2)
+                        case MINUS => val1 - val2
                         case MULT => val1 * val2
                         case DIV => if (val2 == 0) 0 else val1 / val2
                         case MAX => Math.max(val1, val2)
@@ -114,6 +117,7 @@ class CVecAnalysis(
                     def fromNat(v: Value): Int = v match
                         case ValueConstructor(ConstructorName.Zero, _) => 0
                         case ValueConstructor(ConstructorName.Succ, Seq(sub)) => 1 + fromNat(sub)
+                        case ValueConstructor(ConstructorName.Pred, Seq(sub)) => -1 + fromNat(sub)
                         case _ => 0
                     val res = op match
                         case LESSTHAN => fromNat(v1) < fromNat(v2)
@@ -153,7 +157,7 @@ class CVecAnalysis(
         case Type.Nat => {
             try {
                 val n = op.toInt
-                def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                def toNat(i: Int): Value = if (i == 0) ValueConstructor(ConstructorName.Zero, Seq()) else if (i > 0) ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1))) else ValueConstructor(ConstructorName.Pred, Seq(toNat(i + 1)))
                 toNat(n)
             } catch {
                 case _: Exception => ValueConstructor(ConstructorName.Zero, Seq())
@@ -222,8 +226,8 @@ class CVecAnalysis(
     private def generate_cvec(t: Type): Seq[Value] = {
         t match {
             case Type.Nat => Seq.fill(CVEC_SIZE)({
-                val n = util.Random.between(0, 50)
-                def toNat(i: Int): Value = if (i <= 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                val n = util.Random.between(-50, 51)
+                def toNat(i: Int): Value = if (i == 0) ValueConstructor(ConstructorName.Zero, Seq()) else if (i > 0) ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1))) else ValueConstructor(ConstructorName.Pred, Seq(toNat(i + 1)))
                 toNat(n)
             })
             case Type.Boolean => {
@@ -273,7 +277,7 @@ class CVecAnalysis(
         }
 
         if (data1 != data2) {
-            printWarning(s"Warning: Merging two different cvecs -> contradiction")
+            printWarning(s"Warning: Merging two different cvecs -> warning of a potential contradiction if this wasn't caused on purpose")
         }
         return data1
     }
