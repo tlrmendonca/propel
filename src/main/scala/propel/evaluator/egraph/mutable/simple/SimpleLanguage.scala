@@ -51,8 +51,13 @@ enum Value:
       case ValueConstructor(Zero, _)  => "0"
       case ValueConstructor(True, _)  => "true"
       case ValueConstructor(False, _) => "false"
-      case ValueConstructor(Nil, _)   => "[]"
-      case ValueConstructor(Cons, inner) => s"${inner.head.toString} :: ${inner.last.toString}"
+      case ValueConstructor(Nil, _) | ValueConstructor(Cons, _) =>
+        def toSeq(v: Value): Seq[Value] = v match {
+          case ValueConstructor(Nil, _)              => Seq.empty
+          case ValueConstructor(Cons, Seq(head, tail)) => head +: toSeq(tail)
+          case _                                     => Seq(v)
+        }
+        s"list(${toSeq(this).mkString(", ")})"
       case ValueConstructor(Succ, _) | ValueConstructor(Pred, _) =>
         def count(v: Value): Int = v match {
           case ValueConstructor(Succ, inner) => 1 + count(inner.head)
@@ -107,6 +112,9 @@ val function_rules: Map[FunCall, Expr] = Map(
   // append
   FunCall("append", Seq(NIL, Y)) -> Y,
   FunCall("append", Seq(CONS(X, XS), Y)) -> CONS(X, FunCall("append", Seq(XS, Y))),
+  // reverse
+  FunCall("reverse", Seq(NIL)) -> NIL,
+  FunCall("reverse", Seq(CONS(X, XS))) -> FunCall("append", Seq(FunCall("reverse", Seq(XS)), CONS(X, NIL))),
 
   // misc -> not really function definitions anymore
   FunCall("twice", Seq(FunCall("half", Seq(X)))) -> X,
@@ -131,7 +139,8 @@ val function_types: Map[String, Type] = Map(
   "min" -> Function(Seq(Nat, Nat), Nat),
   "mod" -> Function(Seq(Nat, Nat), Nat),
   "length" -> Function(Seq(TList), Nat),
-  "append" -> Function(Seq(TList, TList), TList)
+  "append" -> Function(Seq(TList, TList), TList),
+  "reverse" -> Function(Seq(TList), TList)
 )
 
 def valueToExpr(v: Value): Expr = v match {

@@ -106,13 +106,13 @@ object SimpleLanguageTests {
     // NIL evaluates to []
     val nilVal = eval(NIL)
     assert(nilVal.isDefined, "NIL should evaluate")
-    assert(nilVal.get.toString == "[]", s"NIL should be [], got ${nilVal.get}")
+    assert(nilVal.get.toString == "list()", s"NIL should be list(), got ${nilVal.get}")
     println(s"[Pass] eval(NIL) = ${nilVal.get}")
 
-    // CONS(0, NIL) evaluates to 0 :: []
+    // CONS(0, NIL) evaluates to list(0)
     val consVal = eval(CONS(ZERO, NIL))
     assert(consVal.isDefined, "CONS(0, NIL) should evaluate")
-    assert(consVal.get.toString == "0 :: []", s"CONS(0, NIL) should be '0 :: []', got ${consVal.get}")
+    assert(consVal.get.toString == "list(0)", s"CONS(0, NIL) should be 'list(0)', got ${consVal.get}")
     println(s"[Pass] eval(CONS(0, NIL)) = ${consVal.get}")
 
     // length(NIL) = 0
@@ -130,14 +130,14 @@ object SimpleLanguageTests {
     assert(len2.get.toString == "2", s"length([0, 1]) should be 2, got ${len2.get}")
     println(s"[Pass] eval(length([0, 1])) = ${len2.get}")
 
-    // append(NIL, [0]) = [0]
+    // append(NIL, [0]) = list(0)
     val app1 = eval(FunCall("append", Seq(NIL, CONS(ZERO, NIL))))
-    assert(app1.get.toString == "0 :: []", s"append([], [0]) should be '0 :: []', got ${app1.get}")
+    assert(app1.get.toString == "list(0)", s"append([], [0]) should be 'list(0)', got ${app1.get}")
     println(s"[Pass] eval(append([], [0])) = ${app1.get}")
 
-    // append([0], [1]) = [0, 1]
+    // append([0], [1]) = list(0, 1)
     val app2 = eval(FunCall("append", Seq(CONS(ZERO, NIL), CONS(SUCC(ZERO), NIL))))
-    assert(app2.get.toString == "0 :: 1 :: []", s"append([0], [1]) should be '0 :: 1 :: []', got ${app2.get}")
+    assert(app2.get.toString == "list(0, 1)", s"append([0], [1]) should be 'list(0, 1)', got ${app2.get}")
     println(s"[Pass] eval(append([0], [1])) = ${app2.get}")
 
     println()

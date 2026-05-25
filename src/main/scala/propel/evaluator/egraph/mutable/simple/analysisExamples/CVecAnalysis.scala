@@ -145,11 +145,42 @@ class CVecAnalysis(
                     if (!b) ValueConstructor(ConstructorName.True, Seq()) else ValueConstructor(ConstructorName.False, Seq())
                 }
             })
-            case UNKNOWN => Some(args => { 
+            case APPEND => Some(args => {
+                val lists1 = args(0); val lists2 = args(1)
+                (lists1 zip lists2).map { (l1, l2) => appendLists(l1, l2) }
+            })
+            case REVERSE => Some(args => {
+                args(0).map(reverseList)
+            })
+            case LENGTH => Some(args => {
+                args(0).map { l =>
+                    def len(v: Value): Int = v match
+                        case ValueConstructor(ConstructorName.Nil, _) => 0
+                        case ValueConstructor(ConstructorName.Cons, Seq(_, tail)) => 1 + len(tail)
+                        case _ => 0
+                    def toNat(i: Int): Value = if (i == 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    toNat(len(l))
+                }
+            })
+            case UNKNOWN => Some(args => {
                 // Placeholder, handled by make() for UNKNOWN names
                 Seq.fill(CVEC_SIZE)(ValueConstructor(ConstructorName.Zero, Seq()))
             })
         }
+    }
+
+    private def appendLists(a: Value, b: Value): Value = a match {
+        case ValueConstructor(ConstructorName.Nil, _) => b
+        case ValueConstructor(ConstructorName.Cons, Seq(head, tail)) =>
+            ValueConstructor(ConstructorName.Cons, Seq(head, appendLists(tail, b)))
+        case _ => b
+    }
+
+    private def reverseList(v: Value): Value = v match {
+        case ValueConstructor(ConstructorName.Nil, _) => ValueConstructor(ConstructorName.Nil, Seq())
+        case ValueConstructor(ConstructorName.Cons, Seq(head, tail)) =>
+            appendLists(reverseList(tail), ValueConstructor(ConstructorName.Cons, Seq(head, ValueConstructor(ConstructorName.Nil, Seq()))))
+        case _ => ValueConstructor(ConstructorName.Nil, Seq())
     }
 
     private def check_type(xc_type: Type, op: String) : Value = {
@@ -167,6 +198,7 @@ class CVecAnalysis(
             if (op == "true") ValueConstructor(ConstructorName.True, Seq())
             else ValueConstructor(ConstructorName.False, Seq())
         }
+        case Type.TList => ValueConstructor(ConstructorName.Nil, Seq())
         case _ => throw new Exception("Unknown type in cvec_analysis: " + xc_type)
       }
     }
@@ -234,6 +266,18 @@ class CVecAnalysis(
                 Seq.fill(CVEC_SIZE)(scala.util.Random.nextBoolean())
                   .map(b => if (b) ValueConstructor(ConstructorName.True, Seq()) else ValueConstructor(ConstructorName.False, Seq()))
             }
+            case Type.TList => Seq.fill(CVEC_SIZE)({
+                val len = util.Random.between(0, 4)
+                def randomNat(): Value = {
+                    val n = util.Random.between(0, 4)
+                    def toNat(i: Int): Value = if (i == 0) ValueConstructor(ConstructorName.Zero, Seq()) else ValueConstructor(ConstructorName.Succ, Seq(toNat(i - 1)))
+                    toNat(n)
+                }
+                def makeList(remaining: Int): Value =
+                    if (remaining == 0) ValueConstructor(ConstructorName.Nil, Seq())
+                    else ValueConstructor(ConstructorName.Cons, Seq(randomNat(), makeList(remaining - 1)))
+                makeList(len)
+            })
             case _ => throw new Exception("Unknown type in vector generation: " + t)
         }
     }

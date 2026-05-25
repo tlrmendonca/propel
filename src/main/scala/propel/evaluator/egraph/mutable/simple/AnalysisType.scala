@@ -97,6 +97,9 @@ enum Op:
   case MAX
   case MIN
   case MOD
+  case APPEND
+  case REVERSE
+  case LENGTH
   case UNKNOWN
   // Debug: define toString
   override def toString(): String = this match
@@ -116,6 +119,9 @@ enum Op:
     case MAX => "MAX"
     case MIN => "MIN"
     case MOD => "MOD"
+    case APPEND => "APPEND"
+    case REVERSE => "REVERSE"
+    case LENGTH => "LENGTH"
     case UNKNOWN => "?"
 
 // ** Companion object for Op **
@@ -137,6 +143,9 @@ object Op:
     else if (s == "max") Op.MAX
     else if (s == "min") Op.MIN
     else if (s == "mod") Op.MOD
+    else if (s == "append") Op.APPEND
+    else if (s == "reverse") Op.REVERSE
+    else if (s == "length") Op.LENGTH
     else Op.UNKNOWN
   }
 

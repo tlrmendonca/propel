@@ -129,15 +129,18 @@ object AnalysisTester {
         "\n4. Division Simplification (Almost True)" +
         "\n5. Complete set of simple arithmetic operations" +
         "\n6. Complete set of non-arithmetic operations" +
-        "\n7. Lists and Strings")
-      
-      val selection = scala.io.StdIn.readLine("Enter your choice (1-6): ").trim
-      
+        "\n7. Boolean and Nat mixed scenarios" +
+        "\n8. Reverse/Append identity: reverse(xs ++ ys) == reverse(ys) ++ reverse(xs)")
+
+      val selection = scala.io.StdIn.readLine("Enter your choice (1-8): ").trim
+
       val vars_analysis = new SimpleVarsAnalysis(MutableHashMap(
               "x" -> Type.Nat,
               "y" -> Type.Nat,
               "b1" -> Type.Boolean,
-              "b2" -> Type.Boolean
+              "b2" -> Type.Boolean,
+              "xs" -> Type.TList,
+              "ys" -> Type.TList
           ))
       val type_analysis = new TypeAnalysis(vars_analysis)
       val disequality_analysis = new DisequalityAnalysis(new IdAnalysis())
@@ -405,6 +408,32 @@ object AnalysisTester {
           egraph.rebuild()
 
           printEGraphState(egraph.eclasses, cvec_analysis, "After union(b1, isZero(n1)):")
+
+        case "8" =>
+          // reverse(xs ++ ys) == reverse(ys) ++ reverse(xs)
+          val xsn = ENode(Operator("xs"))
+          val xs = egraph.add(xsn)
+          val ysn = ENode(Operator("ys"))
+          val ys = egraph.add(ysn)
+
+          // LHS: reverse(append(xs, ys))
+          val appendXYn = ENode(Operator("append"), Seq(xs, ys))
+          val appendXY = egraph.add(appendXYn)
+          val lhsn = ENode(Operator("reverse"), Seq(appendXY))
+          val lhs = egraph.add(lhsn)
+
+          // RHS: append(reverse(ys), reverse(xs))
+          val revYSn = ENode(Operator("reverse"), Seq(ys))
+          val revYS = egraph.add(revYSn)
+          val revXSn = ENode(Operator("reverse"), Seq(xs))
+          val revXS = egraph.add(revXSn)
+          val rhsn = ENode(Operator("append"), Seq(revYS, revXS))
+          val rhs = egraph.add(rhsn)
+
+          printEGraphState(egraph.eclasses, cvec_analysis, "Reverse/Append identity:")
+          printConjecturedLemmas(egraph, cvec_analysis)
+          println("Comparing reverse(xs ++ ys) with reverse(ys) ++ reverse(xs):")
+          printSimilarExpressions(egraph, lhs, rhs, cvec_analysis)
       }
       val continue = scala.io.StdIn.readLine("Run another example? (y/n): ")
       if (continue != "y") {
@@ -414,19 +443,53 @@ object AnalysisTester {
     }
   }
 
-  // sbt "runMain propel.evaluator.egraph.mutable.simple.AnalysisTester" 
+  def testReverseAppendIdentity(): Unit = {
+    import EGraph.EGraphOps
+
+    val vars_analysis = new SimpleVarsAnalysis(MutableHashMap(
+      "xs" -> Type.TList,
+      "ys" -> Type.TList
+    ))
+    val type_analysis = new TypeAnalysis(vars_analysis)
+    val disequality_analysis = new DisequalityAnalysis(new IdAnalysis())
+    val cvec_analysis = new CVecAnalysis(type_analysis, vars_analysis, disequality_analysis, new ExprExtractorAnalysis())
+    val egraph = EGraph()
+    egraph.addAnalysis(cvec_analysis)
+
+    val xs = egraph.add(ENode(Operator("xs")))
+    val ys = egraph.add(ENode(Operator("ys")))
+
+    val appendXY = egraph.add(ENode(Operator("append"), Seq(xs, ys)))
+    val lhs = egraph.add(ENode(Operator("reverse"), Seq(appendXY)))
+
+    val revYS = egraph.add(ENode(Operator("reverse"), Seq(ys)))
+    val revXS = egraph.add(ENode(Operator("reverse"), Seq(xs)))
+    val rhs = egraph.add(ENode(Operator("append"), Seq(revYS, revXS)))
+
+    println("\n=== CVec Test: reverse(xs ++ ys) == reverse(ys) ++ reverse(xs) ===")
+    printEGraphState(egraph.eclasses, cvec_analysis, "EGraph state:")
+    printConjecturedLemmas(egraph, cvec_analysis)
+    println("Comparing LHS and RHS CVecs:")
+    printSimilarExpressions(egraph, lhs, rhs, cvec_analysis)
+
+    val lhsCvec = cvec_analysis.getData(lhs.id)
+    val rhsCvec = cvec_analysis.getData(rhs.id)
+    val matches = lhsCvec == rhsCvec
+    println(s"CVecs match: $matches")
+    assert(matches, s"CVecs should match for reverse(xs++ys) == reverse(ys)++reverse(xs)!")
+    println("[Pass] reverse(xs ++ ys) == reverse(ys) ++ reverse(xs)")
+  }
+
+  // sbt "runMain propel.evaluator.egraph.mutable.simple.tests.AnalysisTester"
   def main(args: Array[String]): Unit = {
     println("Starting AnalysisTester...")
-    
-    // println("\n=== Testing Type Analysis ===")
-    // testTypeFold()
-    
-    // println("\n=== Testing Vars Analysis ===")
-    // testVarsAnalysis()
-    
-    println("\n=== Testing CVec Analysis ===")
-    testCVecAnalysis()
-    
-    println("AnalysisTester completed.")
+
+    println("\n=== Testing Reverse/Append Identity ===")
+    testReverseAppendIdentity()
+
+    // println("\n=== Testing CVec Analysis (interactive) ===")
+    // testCVecAnalysis()
+
+    println("\nAnalysisTester completed.")
   }
 }
