@@ -129,7 +129,7 @@ object AnalysisTester {
         "\n4. Division Simplification (Almost True)" +
         "\n5. Complete set of simple arithmetic operations" +
         "\n6. Complete set of non-arithmetic operations" +
-        "\n7. (Broken) Lists and Strings")
+        "\n7. Lists and Strings")
       
       val selection = scala.io.StdIn.readLine("Enter your choice (1-6): ").trim
       

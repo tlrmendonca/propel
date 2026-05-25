@@ -13,6 +13,8 @@ object SimpleLanguageTests {
     testUnification()
     testEvaluation()
     testComplexEvaluation()
+    testListEvaluation()
+    testListNonObvious()
 
     println("\n=== All Tests Completed ===")
   }
@@ -94,6 +96,64 @@ object SimpleLanguageTests {
     val simpleComplexResult = eval(simpleComplexExpr)
     assert(simpleComplexResult.get.toString == "1", s"half(twice(1)) should be 1, got ${simpleComplexResult.get}")
     println(s"[Pass] eval(half(twice(1))) = ${simpleComplexResult.get}")
+
+    println()
+  }
+
+  def testListEvaluation(): Unit = {
+    println("--- Testing List Evaluation ---")
+
+    // NIL evaluates to []
+    val nilVal = eval(NIL)
+    assert(nilVal.isDefined, "NIL should evaluate")
+    assert(nilVal.get.toString == "[]", s"NIL should be [], got ${nilVal.get}")
+    println(s"[Pass] eval(NIL) = ${nilVal.get}")
+
+    // CONS(0, NIL) evaluates to 0 :: []
+    val consVal = eval(CONS(ZERO, NIL))
+    assert(consVal.isDefined, "CONS(0, NIL) should evaluate")
+    assert(consVal.get.toString == "0 :: []", s"CONS(0, NIL) should be '0 :: []', got ${consVal.get}")
+    println(s"[Pass] eval(CONS(0, NIL)) = ${consVal.get}")
+
+    // length(NIL) = 0
+    val len0 = eval(FunCall("length", Seq(NIL)))
+    assert(len0.get.toString == "0", s"length([]) should be 0, got ${len0.get}")
+    println(s"[Pass] eval(length([])) = ${len0.get}")
+
+    // length([0]) = 1
+    val len1 = eval(FunCall("length", Seq(CONS(ZERO, NIL))))
+    assert(len1.get.toString == "1", s"length([0]) should be 1, got ${len1.get}")
+    println(s"[Pass] eval(length([0])) = ${len1.get}")
+
+    // length([0, 1]) = 2
+    val len2 = eval(FunCall("length", Seq(CONS(ZERO, CONS(SUCC(ZERO), NIL)))))
+    assert(len2.get.toString == "2", s"length([0, 1]) should be 2, got ${len2.get}")
+    println(s"[Pass] eval(length([0, 1])) = ${len2.get}")
+
+    // append(NIL, [0]) = [0]
+    val app1 = eval(FunCall("append", Seq(NIL, CONS(ZERO, NIL))))
+    assert(app1.get.toString == "0 :: []", s"append([], [0]) should be '0 :: []', got ${app1.get}")
+    println(s"[Pass] eval(append([], [0])) = ${app1.get}")
+
+    // append([0], [1]) = [0, 1]
+    val app2 = eval(FunCall("append", Seq(CONS(ZERO, NIL), CONS(SUCC(ZERO), NIL))))
+    assert(app2.get.toString == "0 :: 1 :: []", s"append([0], [1]) should be '0 :: 1 :: []', got ${app2.get}")
+    println(s"[Pass] eval(append([0], [1])) = ${app2.get}")
+
+    println()
+  }
+
+  // Non-obvious: length(append([0, 1], [2])) requires evaluating append recursively
+  // to get [0, 1, 2], then length recursively to get 3 — neither step is direct.
+  def testListNonObvious(): Unit = {
+    println("--- Testing Non-Obvious List Problem ---")
+
+    val list01 = CONS(ZERO, CONS(SUCC(ZERO), NIL))
+    val list2  = CONS(SUCC(SUCC(ZERO)), NIL)
+    val expr   = FunCall("length", Seq(FunCall("append", Seq(list01, list2))))
+    val result = eval(expr)
+    assert(result.get.toString == "3", s"length(append([0,1], [2])) should be 3, got ${result.get}")
+    println(s"[Pass] eval(length(append([0,1], [2]))) = ${result.get}")
 
     println()
   }

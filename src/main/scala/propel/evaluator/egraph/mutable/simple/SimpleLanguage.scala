@@ -134,6 +134,10 @@ val function_types: Map[String, Type] = Map(
   "append" -> Function(Seq(TList, TList), TList)
 )
 
+def valueToExpr(v: Value): Expr = v match {
+  case ValueConstructor(name, args) => Constructor(name, args.map(valueToExpr))
+}
+
 // returns the evaluated value of an expression
 def eval(e: Expr): Option[Value] = {
   e match {
@@ -146,8 +150,10 @@ def eval(e: Expr): Option[Value] = {
         None
       }
     case FunCall(name, args) =>
+      // call-by-value: normalise args to constructors before rule matching
+      val normalizedArgs = args.map(a => eval(a).map(valueToExpr).getOrElse(a))
       function_rules.iterator.flatMap { (lhs, body) =>
-        unify(Map.empty, lhs, FunCall(name, args)).flatMap { bindings =>
+        unify(Map.empty, lhs, FunCall(name, normalizedArgs)).flatMap { bindings =>
           eval(substitute(bindings, body))
         }
       }.nextOption()
